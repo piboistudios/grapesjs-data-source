@@ -1,9 +1,11 @@
 import { Component } from 'grapesjs'
-import { Context, Expression, Field, Filter, Property, State, StateId, Token, Type, TypeId } from '../types'
+import { Context, DataSourceEditor, Expression, Field, Filter, Property, State, StateId, Token, Type, TypeId } from '../types'
 import { DataTree } from './DataTree'
-import { getOrCreatePersistantId, getState, getStateIds } from './state'
+import { getOrCreatePersistantId, getState, getStateIds, StoredState, StoredStateWithId } from './state'
 import { getExpressionResultType, getTokenOptions } from './token'
 import { getFixedToken } from '../utils'
+import { html } from 'lit'
+import {debounce} from 'underscore'
 
 /**
  * Get the context of a component
@@ -101,7 +103,7 @@ export function getContext(component: Component, dataTree: DataTree, currentStat
 export function fieldToToken(field: Field): Property {
   if (!field) throw new Error('Field is required for token')
   if (!field.dataSourceId) throw new Error(`Field ${field.id} has no data source`)
-  return {
+  const ret: Property = {
     type: 'property',
     propType: 'field',
     fieldId: field.id,
@@ -110,14 +112,102 @@ export function fieldToToken(field: Field): Property {
     dataSourceId: field.dataSourceId,
     kind: field.kind,
     ...getTokenOptions(field) ?? {},
+    optionsForm: field.optionsForm
+  }
+  
+  return ret;
+}
+export let ACTIONS: Type & {editor:DataSourceEditor};
+function stateSetter(editor:DataSourceEditor, opts:any): Field {
+  const saveState = debounce(()=>{
+    editor.store();
+  },1000);
+  return {
+    arguments: [
+      {
+        name: "key",
+        typeId: "string",
+        defaultValue: "key"
+      },
+      {
+        name: "value",
+        typeId: "unknown",
+        defaultValue: "[]"
+      }
+    ],
+    optionsForm: (selected, input, options:any, state) => {
+      options.key ??= '';
+      options.value ??= '[]';
+      
+      const states: StoredStateWithId[] = [];
+      let el: Component | undefined = selected;
+      let elStates = el.get('publicStates');
+      do {
+        states.push(...(el.get('publicStates') || []));
+      } while((el = el.parent()) && (elStates = el.get('publicStates')))
+      return html`
+      <label>
+        <p>Key:</p>
+        <select @input=${saveState} name="key" value=${options.key}>
+          ${states.map(s => {
+            return html`
+            ${
+            s.id === options.key ?
+              html`<option value=${s.id} selected>${s.label}</option>` :
+              html`<option value=${s.id}>${s.label}</option>`
+              }
+            `
+          })}
+        </select>
+      </label>
+      <state-editor
+        .selected=${selected}
+        .editor=${editor}
+        name="value"
+        data-is-input
+        class="ds-state-editor__options"
+        .value=${options.value}
+        @change=${saveState}
+      >
+        <label slot="label">Value</label>
+      </state-editor>
+      `
+    },
+    typeIds: ['__actions'],
+    kind: 'object',
+    dataSourceId: "actions",
+    ...opts,
+
   }
 }
+export function getActionsType(editor: DataSourceEditor) {
+    if (!editor) throw new Error("`editor` is required.");
+    const saveState = debounce(()=>{
+      editor.store();
+    },1000);
+    ACTIONS = {
+      editor,
+      id: '__actions',
+      label: 'Actions',
+      fields: [
+        stateSetter(editor, {label: "Set State", id: 'set_state'}),
+        stateSetter(editor, {label: "Coalesce w/ State", id: 'coalesce_w_state'}),
+        // stateSetter(editor, {label: "Coalesce w/ State", id: 'coalesce_w_state'}),
 
+      ]
+      // .map(e => ({
+      //   ...e,
+      //   kind: 'object',
+      //   typeIds: ['actions']
+      // }))
+    };
+  return ACTIONS;
+}
 /**
  * Auto complete an expression
  * @returns a list of possible tokens to add to the expression
  */
-export function getCompletion(options: { component: Component, expression: Expression, dataTree: DataTree, rootType?: TypeId, currentStateId?: StateId, hideLoopData?: boolean}): Context {
+export function getCompletion(options: { component: Component, expression: Expression, dataTree: DataTree, rootType?: TypeId, currentStateId?: StateId, hideLoopData?: boolean }): Context {
   const { component, expression, dataTree, rootType, currentStateId, hideLoopData } = options
   if (!component) throw new Error('Component is required for completion')
   if (!expression) throw new Error('Expression is required for completion')

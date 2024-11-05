@@ -116,11 +116,11 @@ export declare function getDataSourceClass(ds: IDataSource | {
  * GrapesJs plugin to manage data sources
  */
 export declare class DataSourceManager extends Backbone.Collection<IDataSourceModel> {
-	protected editor: DataSourceEditor;
 	protected options: DataSourceEditorOptions;
 	protected dataTree: DataTree;
 	get filters(): Filter[];
 	set filters(filters: Filter[]);
+	editor: DataSourceEditor;
 	constructor(models: IDataSourceModel[], editor: DataSourceEditor, options: DataSourceEditorOptions);
 	/**
 	 * Get all data sources
@@ -129,17 +129,17 @@ export declare class DataSourceManager extends Backbone.Collection<IDataSourceMo
 	/**
 	 * Forward events from data sources to the editor
 	 */
-	protected dataChangedBinded: (e?: CustomEvent) => void;
+	protected dataChangedBinded: any;
 	dataChanged(e?: CustomEvent): void;
 	/**
 	 * Forward events from data sources to the editor
 	 */
-	protected dataSourceReadyBinded: (ds: IDataSource) => void;
+	protected dataSourceReadyBinded: any;
 	dataSourceReady(ds: IDataSource): void;
 	/**
 	 * Forward events from data sources to the editor
 	 */
-	protected dataSourceErrorBinded: (message: string, ds: IDataSource) => void;
+	protected dataSourceErrorBinded: any;
 	dataSourceError(message: string, ds: IDataSource): void;
 	/**
 	 * Listen to data source changes
@@ -152,6 +152,7 @@ export declare class DataSourceManager extends Backbone.Collection<IDataSourceMo
 	getDataTree(): DataTree;
 	getPageQuery(page: Page): Record<DataSourceId, string>;
 }
+export declare const ActionsDataSourceId = "actions";
 /**
  * Add the DataSourceManager to the GrapesJs editor
  */
@@ -204,7 +205,7 @@ export declare const DATA_SOURCE_CHANGED = "data-source:changed";
 export declare const COMPONENT_STATE_CHANGED = "component:state:changed";
 export interface IDataSourceModel extends Backbone.Model, IDataSource {
 }
-export type DataSourceType = "graphql";
+export type DataSourceType = "graphql" | "openapi";
 export interface IDataSourceOptions extends Backbone.ModelSetOptions {
 	id: DataSourceId;
 	label: string;
@@ -234,6 +235,7 @@ export interface Field {
 	kind: FieldKind;
 	dataSourceId?: DataSourceId;
 	arguments?: FieldArgument[];
+	optionsForm?: (selected: Component, input: Field | null, options: Options, stateName: string) => TemplateResult;
 }
 /**
  * A token can be a property or a filter
@@ -279,7 +281,7 @@ export interface StoredFilter {
 	optionsKeys?: string[];
 }
 export interface Filter extends StoredFilter {
-	optionsForm?: (selected: Component, input: Field | null, options: Options, stateName: string) => TemplateResult | null;
+	optionsForm?: (selected: Component, input: Field | null, options: Options, stateName: string, editor?: DataSourceEditor) => TemplateResult | null;
 	validate: (input: Field | null) => boolean;
 	output: (input: Field | null, options: Options) => Field | null;
 	apply: (input: unknown, options: Options) => unknown;
@@ -437,7 +439,7 @@ export declare function getExpressionResultType(expression: Expression, componen
  * Get the options of a token
  */
 export declare function getTokenOptions(field: Field): {
-	optionsForm: (selected: Component, input: Field | null, options: Options) => TemplateResult;
+	optionsForm: (selected: Component, input: Field | null, options: Options, _: string, editor: DataSourceEditor) => TemplateResult;
 	options: Options;
 } | null;
 /**
@@ -446,7 +448,7 @@ export declare function getTokenOptions(field: Field): {
 export declare function optionsToOptionsForm(arr: {
 	name: string;
 	value: unknown;
-}[]): (selected: Component, input: Field | null, options: Options) => TemplateResult;
+}[]): (selected: Component, input: Field | null, options: Options, _: string, editor: DataSourceEditor) => TemplateResult;
 /**
  * Utility function to shallow compare two objects
  * Used to compare options of tree items
@@ -465,6 +467,12 @@ export declare function getContext(component: Component, dataTree: DataTree, cur
  * Create a property token from a field
  */
 export declare function fieldToToken(field: Field): Property;
+export declare let ACTIONS: Type & {
+	editor: DataSourceEditor;
+};
+export declare function getActionsType(editor: DataSourceEditor): Type & {
+	editor: DataSourceEditor;
+};
 /**
  * Auto complete an expression
  * @returns a list of possible tokens to add to the expression
@@ -496,11 +504,28 @@ export interface GraphQLQueryOptions {
 export interface GraphQLOptions extends GraphQLQueryOptions, IDataSourceOptions {
 	serverToServer?: GraphQLQueryOptions;
 }
+/**
+ * OpenApi Data source options
+ */
+export interface OpenApiQueryOptions {
+	url: string;
+	headers: Record<string, string>;
+	method: "GET";
+	queryable?: TypeId[];
+	readonly?: boolean;
+	doc?: any;
+}
+/**
+ * OpenApi Data source options with server to server options
+ */
+export interface OpenApiOptions extends OpenApiQueryOptions, IDataSourceOptions {
+	serverToServer?: OpenApiQueryOptions;
+}
 export declare const NOTIFICATION_GROUP = "Data source";
 /**
  * Get the display name of a field
  */
-export declare function cleanStateName(name: string | null): string | undefined;
+export declare function cleanStateName(name: string | null): string;
 export declare function getComponentDebug(component: Component): string;
 /**
  * Concatenate strings to get a desired length string as result
@@ -565,7 +590,7 @@ export declare function optionsFormKeySelector(editor: DataSourceEditor, field: 
  * @throws Error if the element is not found
  */
 export declare function getElementFromOption(option: HTMLElement | string | (() => HTMLElement) | undefined, optionNameForError: string): HTMLElement;
-export declare function getDefaultOptions(postFix?: string): GraphQLOptions;
+export declare function getDefaultOptions(postFix?: string): OpenApiOptions;
 export declare function createDataSource(opts?: Partial<GraphQLOptions>, postFix?: string): IDataSourceModel;
 /**
  * Editor for a state of the selected element's properties
@@ -627,11 +652,11 @@ export declare class StateEditor extends LitElement {
 	 * Structured data
 	 */
 	private _data;
-	get data(): Token[];
-	set data(value: Token[] | string);
+	get data(): core.Token[];
+	set data(value: core.Token[] | string);
 	private _editor;
-	get editor(): DataSourceEditor | null;
-	set editor(value: DataSourceEditor | null);
+	get editor(): core.DataSourceEditor | null;
+	set editor(value: core.DataSourceEditor | null);
 	private redrawing;
 	private expressionInputRef;
 	private popinsRef;

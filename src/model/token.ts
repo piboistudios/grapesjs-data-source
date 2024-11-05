@@ -1,8 +1,9 @@
 import { Component } from 'grapesjs'
-import { Expression, Field, FieldArgument, Filter, Options, Property, PropertyOptions, StoredToken, Token, Type, TypeId } from '../types'
+import { DataSourceEditor, Expression, Field, FieldArgument, Filter, Options, Property, PropertyOptions, StoredToken, Token, Type, TypeId } from '../types'
 import { DataTree } from './DataTree'
 import { getParentByPersistentId, getState } from './state'
 import { TemplateResult, html } from 'lit'
+import { ACTIONS } from './completion'
 
 /**
  * Add missing methonds to the filter
@@ -49,9 +50,14 @@ export function fromStored<T extends Token = Token>(token: StoredToken, dataTree
       console.error('Field not found for token', token)
       throw new Error(`Field ${token.fieldId} not found`)
     }
+    if (field.dataSourceId === 'actions') {
+      const original = ACTIONS.fields.find(f => f.id === field.id);
+      if (original?.optionsForm) field.optionsForm = original.optionsForm;
+    }
     return {
       ...getTokenOptions(field) ?? {},
       ...token,
+      ...(field.optionsForm ? { optionsForm: field.optionsForm} : {})
     } as T
   }
   case 'state':
@@ -187,15 +193,17 @@ export function getExpressionResultType(expression: Expression, component: Compo
 /**
  * Get the options of a token
  */
-export function getTokenOptions(field: Field): { optionsForm: (selected: Component, input: Field | null, options: Options) => TemplateResult, options: Options } | null {
-  if (field.arguments && field.arguments.length > 0) {
-    return {
-      optionsForm: optionsToOptionsForm(field.arguments.map((arg) => ({ name: arg.name, value: arg.defaultValue }))),
-      options: field.arguments.reduce((options: Record<string, unknown>, arg: FieldArgument) => {
+export function getTokenOptions(field: Field): { optionsForm: (selected: Component, input: Field | null, options: Options, _:string, editor:DataSourceEditor) => TemplateResult, options: Options } | null {
+  if (field.optionsForm || (field.arguments && field.arguments.length > 0)) {
+    const ret = {
+      optionsForm: field.optionsForm || optionsToOptionsForm(field.arguments!.map((arg) => ({ name: arg.name, value: arg.defaultValue }))),
+      options: !field.arguments ? {} : field.arguments.reduce((options: Record<string, unknown>, arg: FieldArgument) => {
         options[arg.name] = arg.defaultValue
         return options
       }, {}),
     }
+    return ret;
+
   }
   return null
 }
@@ -203,12 +211,23 @@ export function getTokenOptions(field: Field): { optionsForm: (selected: Compone
 /**
  * Get the options of a token or a field
  */
-export function optionsToOptionsForm(arr: { name: string, value: unknown }[]): (selected: Component, input: Field | null, options: Options) => TemplateResult {
-  return (selected: Component, input: Field | null, options: Options) => {
+export function optionsToOptionsForm(arr: { name: string, value: unknown }[]): (selected: Component, input: Field | null, options: Options, _:string, editor:DataSourceEditor) => TemplateResult {
+  return (selected: Component, input: Field | null, options: Options, _:string, editor:DataSourceEditor) => {
     return html`
               ${arr.map((obj) => {
     const value = options[obj.name] ?? obj.value ?? ''
-    return html`<label>${obj.name}</label><input type="text" name=${obj.name} .value=${value}>`
+    // return html`<label>${obj.name}</label><input type="text" name=${obj.name} .value=${value}>`
+    return html`<state-editor
+          .selected=${selected}
+          .editor=${editor}
+          .value=${value}
+          no-filters
+          data-is-input
+          class="ds-state-editor__options"
+          name=${obj.name}
+        >
+          <label slot="label">${obj.name}</label>
+        </state-editor>`
   })
 }
           `

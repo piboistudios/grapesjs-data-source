@@ -26,6 +26,8 @@ import settings from './settings'
 import '@silexlabs/expression-input/dist/popin-form.js'
 import './properties-editor'
 import './custom-states-editor'
+import './events-editor'
+import { EventsEditor } from './events-editor'
 
 export default (editor: DataSourceEditor, opts: Partial<DataSourceEditorViewOptions> = {}) => {
   if (opts.el) {
@@ -85,6 +87,27 @@ export default (editor: DataSourceEditor, opts: Partial<DataSourceEditorViewOpti
         </style>
       </custom-states-editor>
     `
+    const events =  `
+      <events-editor
+        class="ds-events"
+        title="Events"
+        default-fixed=${options.defaultFixed}
+        create-prompt="Name of the event"
+        rename-prompt="Rename the event"
+        root-type="__actions"
+        default-name="New attribute"
+        reserved-names=${Object.keys(Properties).join(',')}
+        help-text="
+          Event listeners of the element.\n
+          For example you can set the 'click' event of a button, or the 'submit' attribute of an form.
+        "
+        help-link="https://alpinejs.dev/directives/on"
+        >
+        <style>
+          ${options.styles}
+        </style>
+      </events-editor>
+    `
     const properties = options.disableProperties ? '' : `
       <properties-editor
         class="ds-properties"
@@ -95,10 +118,12 @@ export default (editor: DataSourceEditor, opts: Partial<DataSourceEditorViewOpti
         </style>
       </properties-editor>
     `
+    const dm = editor.DataSourceManager;
     wrapper.innerHTML = `
       ${states}
       ${attributes}
       ${properties}
+      ${events}
     `
 
     // Build the settings view
@@ -116,11 +141,13 @@ export default (editor: DataSourceEditor, opts: Partial<DataSourceEditorViewOpti
       const propertiesUi = wrapper.querySelector('properties-editor.ds-properties') as PropertiesEditor
       const statesUi = wrapper.querySelector('custom-states-editor.ds-states') as CustomStatesEditor
       const attributesUi = wrapper.querySelector('custom-states-editor.ds-attributes') as CustomStatesEditor
+      const eventsUi = wrapper.querySelector('events-editor.ds-events') as EventsEditor
 
       // Init web components
       propertiesUi?.setEditor(editor)
       statesUi?.setEditor(editor)
       attributesUi?.setEditor(editor)
+      eventsUi?.setEditor(editor)
 
       // Show the UI when the button is clicked
       if (options.button) {

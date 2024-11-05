@@ -16,8 +16,8 @@
  */
 
 import Backbone from 'backbone'
-import { COMPONENT_STATE_CHANGED, DATA_SOURCE_CHANGED, DATA_SOURCE_ERROR, DATA_SOURCE_READY, DataSourceId, Filter, IDataSource, IDataSourceModel, Property, StoredToken } from '../types'
-import { DataSourceEditor, DataSourceEditorOptions, getComponentDebug, NOTIFICATION_GROUP } from '..'
+import { COMPONENT_STATE_CHANGED, DATA_SOURCE_CHANGED, DATA_SOURCE_ERROR, DATA_SOURCE_READY, DataSourceId, Field, Filter, IDataSource, IDataSourceModel, Property, StoredToken, Type } from '../types'
+import { DataSourceEditor, DataSourceEditorOptions, getActionsType, getComponentDebug, NOTIFICATION_GROUP } from '..'
 import { DataTree } from './DataTree'
 import { Component, Page } from 'grapesjs'
 import { StoredState, onStateChange } from './state'
@@ -30,9 +30,9 @@ import getGenericFilters from '../filters/generic'
  */
 export function getDataSourceClass(ds: IDataSource | { attributes: IDataSource }): IDataSource {
   const unknownTyped = ds as Record<string, unknown>
-  if(typeof unknownTyped.getTypes === 'function') return ds as IDataSource
+  if (typeof unknownTyped.getTypes === 'function') return ds as IDataSource
   const unknownAttributes = unknownTyped.attributes as Record<string, unknown>
-  if(typeof unknownAttributes.getTypes === 'function') return unknownTyped.attributes as IDataSource
+  if (typeof unknownAttributes.getTypes === 'function') return unknownTyped.attributes as IDataSource
   console.error('Data source has no getTypes method', ds)
   throw new Error('Data source has no getTypes method')
 }
@@ -48,10 +48,10 @@ export class DataSourceManager extends Backbone.Collection<IDataSourceModel> {
   set filters(filters: Filter[]) {
     this.dataTree.filters = this.filters
   }
-
-  constructor(models: IDataSourceModel[], protected editor: DataSourceEditor,  protected options: DataSourceEditorOptions) {
+  editor: DataSourceEditor
+  constructor(models: IDataSourceModel[], editor: DataSourceEditor, protected options: DataSourceEditorOptions) {
     super(models, options)
-
+    this.editor = editor;
     // Make sure the operations are undoable
     this.editor.UndoManager.add(this)
 
@@ -69,9 +69,9 @@ export class DataSourceManager extends Backbone.Collection<IDataSourceModel> {
           .flatMap((filter: Partial<Filter> | string): Filter[] => {
             if (typeof filter === 'string') {
               switch (filter) {
-              case 'liquid': return getLiquidFilters(editor)
-              case 'generic': return getGenericFilters(editor)
-              default: throw new Error(`Unknown filters ${filter}`)
+                case 'liquid': return getLiquidFilters(editor)
+                case 'generic': return getGenericFilters(editor)
+                default: throw new Error(`Unknown filters ${filter}`)
               }
             } else {
               return [{
@@ -80,10 +80,10 @@ export class DataSourceManager extends Backbone.Collection<IDataSourceModel> {
               } as Filter]
             }
           })
-          .map((filter: Filter)=> ({ ...filter, type: 'filter' })) as Filter[]
+          .map((filter: Filter) => ({ ...filter, type: 'filter' })) as Filter[]
       }
     })()
-
+    this.models.push(new ActionsDataSource(this.editor))
     // Init the data tree
     this.dataTree = new DataTree(editor, {
       dataSources: this.models,
@@ -176,30 +176,30 @@ export class DataSourceManager extends Backbone.Collection<IDataSourceModel> {
           .map((componentExpression) => ({
             component: componentExpression.component,
             expression: componentExpression.expression.flatMap((token: StoredToken) => {
-              switch(token.type) {
-              case 'property':
-              case 'filter':
-                return token
-              case 'state': {
-                const resolved = this.dataTree.resolveState(token, componentExpression.component)
-                if (!resolved) {
-                  this.editor.runCommand('notifications:add', {
-                    type: 'error',
-                    group: NOTIFICATION_GROUP,
-                    message: `Unable to resolve state ${JSON.stringify(token)}. State defined on component ${getComponentDebug(componentExpression.component)}`,
-                    componentId: componentExpression.component.getId(),
-                  })
-                  throw new Error(`Unable to resolve state ${JSON.stringify(token)}. State defined on component ${getComponentDebug(componentExpression.component)}`)
+              switch (token.type) {
+                case 'property':
+                case 'filter':
+                  return token
+                case 'state': {
+                  const resolved = this.dataTree.resolveState(token, componentExpression.component)
+                  if (!resolved) {
+                    this.editor.runCommand('notifications:add', {
+                      type: 'error',
+                      group: NOTIFICATION_GROUP,
+                      message: `Unable to resolve state ${JSON.stringify(token)}. State defined on component ${getComponentDebug(componentExpression.component)}`,
+                      componentId: componentExpression.component.getId(),
+                    })
+                    throw new Error(`Unable to resolve state ${JSON.stringify(token)}. State defined on component ${getComponentDebug(componentExpression.component)}`)
+                  }
+                  return resolved
                 }
-                return resolved
-              }
               }
             })
           }))
           // Keep only the expressions for the current data source
           .filter(componentExpression => {
             const e = componentExpression.expression
-            if(e.length === 0) return false
+            if (e.length === 0) return false
             // We resolved all states
             // An expression can not start with a filter
             // So this is a property
@@ -208,7 +208,7 @@ export class DataSourceManager extends Backbone.Collection<IDataSourceModel> {
             return first.dataSourceId === ds.id
           })
         const trees = this.dataTree.toTrees(dsExpressions, ds.id)
-        if(trees.length === 0) {
+        if (trees.length === 0) {
           return {
             dataSourceId: ds.id.toString(),
             query: '',
@@ -225,5 +225,51 @@ export class DataSourceManager extends Backbone.Collection<IDataSourceModel> {
         acc[dataSourceId] = query
         return acc
       }, {} as Record<DataSourceId, string>)
+  }
+}
+
+export const ActionsDataSourceId = 'actions';
+class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
+  constructor(editor: DataSourceEditor) {
+    super()
+    this.editor = editor;
+  }
+  /**
+   * FIXME: this is required because _.uniqueId in backbone gives the same id as the one in the main app (c1), so we probably use a different underscore instance?
+   */
+  cid = ActionsDataSourceId
+  editor: DataSourceEditor
+  /**
+   * Unique identifier of the data source
+   * This is used to retrieve the data source from the editor
+   */
+  id = ActionsDataSourceId
+  label = 'Actions'
+  hidden = false
+
+  /**
+   * Implement IDatasource
+   */
+  async connect(): Promise<void> { }
+  isConnected(): boolean { return true }
+
+  /**
+   * Implement IDatasource
+   */
+  getQuery(/*expressions: Expression[]*/): string { return '' }
+
+  /**
+   * Implement IDatasource
+   */
+  getTypes(): Type[] {
+
+    return [getActionsType(this.editor)]
+  }
+
+  /**
+   * Implement IDatasource
+   */
+  getQueryables(): Field[] {
+    return []
   }
 }

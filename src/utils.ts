@@ -5,6 +5,7 @@ import { TemplateResult, html } from 'lit'
 import { Component } from 'grapesjs'
 import { fromStored, getExpressionResultType } from './model/token'
 import GraphQL, { GraphQLOptions } from './datasources/GraphQL'
+import { OpenApiOptions } from './datasources/OpenApi'
 
 export const NOTIFICATION_GROUP = 'Data source'
 
@@ -321,13 +322,13 @@ export function getElementFromOption(option: HTMLElement | string | (() => HTMLE
   throw new Error(`${optionNameForError} must be a string or an HTMLElement or a function`)
 }
 
-export function getDefaultOptions(postFix = Math.random().toString(36).slice(2, 8)): GraphQLOptions {
+export function getDefaultOptions(postFix = Math.random().toString(36).slice(2, 8)): OpenApiOptions {
   return {
     id: `ds-${postFix}`,
     label: 'New data source',
-    type: 'graphql',
+    type: 'openapi',
     url: '',
-    method: 'POST',
+    method: 'GET',
     headers: {},
     readonly: false,
   }

@@ -18,7 +18,7 @@
 import {LitElement, TemplateResult, html} from 'lit'
 import {customElement, property} from 'lit/decorators.js'
 import { PROPERTY_STYLES } from './defaultStyles'
-import { DATA_SOURCE_CHANGED, DataSourceEditor, Filter, Property, Token } from '..'
+import * as core from '..'
 
 import { Ref, createRef, ref } from 'lit/directives/ref.js'
 import { styleMap } from 'lit/directives/style-map.js'
@@ -98,7 +98,7 @@ export class StateEditor extends LitElement {
       this.data = newValue
       return
     }
-    this.data = expression as Token[]
+    this.data = expression as core.Token[]
   }
 
   /**
@@ -126,13 +126,13 @@ export class StateEditor extends LitElement {
       this.form = this.closest('form')
     }
 
-    this.editor?.on(DATA_SOURCE_CHANGED, this.renderBinded)
+    this.editor?.on(core.DATA_SOURCE_CHANGED, this.renderBinded)
   }
 
   override disconnectedCallback() {
     this.form = null
     super.disconnectedCallback()
-    this.editor?.off(DATA_SOURCE_CHANGED, this.renderBinded)
+    this.editor?.off(core.DATA_SOURCE_CHANGED, this.renderBinded)
   }
 
   /**
@@ -164,8 +164,8 @@ export class StateEditor extends LitElement {
   /**
    * Structured data
    */
-  private _data: Token[] = []
-  get data(): Token[] {
+  private _data: core.Token[] = []
+  get data(): core.Token[] {
     const input = this.expressionInputRef.value
     if(!this._selected || !this.editor) {
       console.error('selected and editor are required', this._selected, this.editor)
@@ -193,7 +193,7 @@ export class StateEditor extends LitElement {
               kind: 'scalar',
               typeIds: [],
               options: {},
-            } as Property
+            } as core.Property
           }
         })
         // Here the data is missing options as data comes from completion
@@ -212,7 +212,7 @@ export class StateEditor extends LitElement {
         })
     }
   }
-  set data(value: Token[] | string) {
+  set data(value: core.Token[] | string) {
     if(typeof value === 'string') {
       this._data = value === '' ? [] : [getFixedToken(value)]
     } else {
@@ -221,12 +221,12 @@ export class StateEditor extends LitElement {
     if (this.editor) this.requestUpdate()
   }
 
-  private _editor: DataSourceEditor | null = null
+  private _editor: core.DataSourceEditor | null = null
   @property({type: Object})
-  get editor(): DataSourceEditor | null {
+  get editor(): core.DataSourceEditor | null {
     return this._editor
   }
-  set editor(value: DataSourceEditor | null) {
+  set editor(value: core.DataSourceEditor | null) {
     this._editor = value
     this.requestUpdate()
   }
@@ -271,7 +271,7 @@ export class StateEditor extends LitElement {
       || (completion.length === 0 && _currentValue.length === 0)
 
     // Fixed text
-    const text = fixed ? (_currentValue![0] as Property)?.options?.value || '' : ''
+    const text = fixed ? (_currentValue![0] as core.Property)?.options?.value || '' : ''
 
     // Build the expression input
     const result = html`
@@ -297,7 +297,7 @@ export class StateEditor extends LitElement {
             />
         </div>
         ${ _currentValue && _currentValue.length > 0 ? html`
-          ${ _currentValue.map((token: Token, idx: number) => {
+          ${ _currentValue.map((token: core.Token, idx: number) => {
     this.popinsRef[idx] = createRef<PopinForm>()
     const optionsForm = this.getOptions(selected, _currentValue, idx)
     const partialExpression = _currentValue.slice(0, idx)
@@ -403,7 +403,7 @@ export class StateEditor extends LitElement {
       if(data.length > idx) {
         // Clear options
         if(data[idx].type === 'property' || data[idx].type === 'filter') {
-          (data[idx] as Property | Filter).options = {}
+          (data[idx] as core.Property | core.Filter).options = {}
         }
       } else {
         // We selected the "-" option, do nothing, this step will be removed
@@ -442,14 +442,14 @@ export class StateEditor extends LitElement {
             kind: 'scalar',
             typeIds: [],
             options: {},
-          } as Property
+          } as core.Property
         }
       })
     // Get the selected options
     const options = input.options
       .filter(o => o.selected)
     // Update the options of the token
-    ;(tokens[idx] as Property | Filter).options = popin.value
+    ;(tokens[idx] as core.Property | core.Filter).options = popin.value
     // Update the dom
     options[idx].value = toValue(tokens[idx])
     // Update the state
@@ -462,7 +462,7 @@ export class StateEditor extends LitElement {
     this.dispatchEvent(new Event('change', { bubbles: true }))
   }
 
-  private getOptions(component: Component, tokens: Token[], idx: number): TemplateResult | '' {
+  private getOptions(component: Component, tokens: core.Token[], idx: number): TemplateResult | '' {
     if(!this.editor) throw new Error('editor is required')
     const dataTree = this.editor.DataSourceManager.getDataTree()
     const token = tokens[idx]
@@ -482,7 +482,7 @@ export class StateEditor extends LitElement {
     case 'property':
     case 'filter':
       if(token.optionsForm) {
-        const form = token.optionsForm(component, fields[fields.length - 1], token.options || {}, this.parentName || this.name)
+        const form = token.optionsForm(component, fields[fields.length - 1], token.options || {}, this.parentName || this.name, this.editor)
         return form || ''
       }
       return ''

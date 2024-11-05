@@ -91,7 +91,7 @@ export const COMPONENT_STATE_CHANGED = 'component:state:changed'
 // For use by the DataSourceManager class which is a Backbone collection
 export interface IDataSourceModel extends Backbone.Model, IDataSource {}
 
-export type DataSourceType = 'graphql'
+export type DataSourceType = 'graphql'|'openapi'
 
 // Options of a data source
 export interface IDataSourceOptions extends Backbone.ModelSetOptions {
@@ -133,7 +133,9 @@ export interface Field {
   kind: FieldKind
   dataSourceId?: DataSourceId
   arguments?: FieldArgument[]
+  optionsForm?: (selected: Component, input: Field | null, options: Options, stateName: string) => TemplateResult
 }
+
 
 // **
 // Data tree
@@ -185,7 +187,7 @@ export interface StoredFilter {
   optionsKeys?: string[] // Optional, used to set a specific order
 }
 export interface Filter extends StoredFilter {
-  optionsForm?: (selected: Component, input: Field | null, options: Options, stateName: string) => TemplateResult | null
+  optionsForm?: (selected: Component, input: Field | null, options: Options, stateName: string, editor?: DataSourceEditor) => TemplateResult | null
   validate: (input: Field | null) => boolean
   output: (input: Field | null, options: Options) => Field | null
   apply: (input: unknown, options: Options) => unknown

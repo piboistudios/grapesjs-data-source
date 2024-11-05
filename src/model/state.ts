@@ -70,6 +70,7 @@ export function getOrCreatePersistantId(component: Component): PersistantId {
   if(persistantId) return persistantId
   const newPersistantId = `${component.ccid}-${Math.round(Math.random() * 10000)}` as PersistantId
   component.set(PERSISTANT_ID_KEY, newPersistantId)
+  component.set('foo', 'bar');
   return newPersistantId
 }
 
