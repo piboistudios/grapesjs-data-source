@@ -15,18 +15,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import {LitElement, TemplateResult, html} from 'lit'
-import {customElement, property} from 'lit/decorators.js'
+import { LitElement, TemplateResult, html } from 'lit'
+import { customElement, property } from 'lit/decorators.js'
 import { PROPERTY_STYLES } from './defaultStyles'
 import * as core from '..'
-
+import Tagify from '@yaireo/tagify'
 import { Ref, createRef, ref } from 'lit/directives/ref.js'
 import { styleMap } from 'lit/directives/style-map.js'
 import { FIXED_TOKEN_ID, fromString, getFixedToken, getTokenDisplayName, groupByType, toExpression, toId, toValue } from '../utils'
 import { ExpressionInput } from '@silexlabs/expression-input'
 import { Component } from 'grapesjs'
 import { PopinForm } from '@silexlabs/expression-input/dist/popin-form'
-
+import tagifyCss from './fixtures/tagify.css'
 import '@silexlabs/expression-input'
 import { getCompletion } from '../model/completion'
 import { fromStored, getExpressionResultType } from '../model/token'
@@ -46,37 +46,37 @@ import { fromStored, getExpressionResultType } from '../model/token'
 
 @customElement('state-editor')
 export class StateEditor extends LitElement {
-  @property({type: Boolean})
-    disabled = false
+  @property({ type: Boolean })
+  disabled = false
 
-  @property({type: String})
-    name = ''
+  @property({ type: String })
+  name = ''
 
-  @property({type: Boolean, attribute: 'hide-loop-data'})
-    hideLoopData = false
+  @property({ type: Boolean, attribute: 'hide-loop-data' })
+  hideLoopData = false
 
   /**
    * used in the expressions found in filters options
    * This will be used to filter states which are not defined yet
    */
-  @property({type: String, attribute: 'parent-name'})
-    parentName = ''
+  @property({ type: String, attribute: 'parent-name' })
+  parentName = ''
 
-  @property({type: Boolean, attribute: 'no-filters'})
-    noFilters = false
+  @property({ type: Boolean, attribute: 'no-filters' })
+  noFilters = false
 
-  @property({type: String, attribute: 'root-type'})
-    rootType = ''
+  @property({ type: String, attribute: 'root-type' })
+  rootType = ''
 
-  @property({type: Boolean, attribute: 'default-fixed'})
-    defaultFixed = false
+  @property({ type: Boolean, attribute: 'default-fixed' })
+  defaultFixed = false
 
   // Note: dismissCurrentComponentStates not used in this project anymore
-  @property({type: Boolean, attribute: 'dismiss-current-component-states'})
-    dismissCurrentComponentStates = false
+  @property({ type: Boolean, attribute: 'dismiss-current-component-states' })
+  dismissCurrentComponentStates = false
 
   private _selected: Component | null = null
-  @property({type: Object})
+  @property({ type: Object })
   get selected(): Component | null {
     return this._selected
   }
@@ -105,8 +105,8 @@ export class StateEditor extends LitElement {
    * Form id
    * This is the same API as input elements
    */
-  @property({type: String, attribute: 'for'})
-    for = ''
+  @property({ type: String, attribute: 'for' })
+  for = ''
 
   /**
    * Binded listeners
@@ -117,9 +117,9 @@ export class StateEditor extends LitElement {
   override connectedCallback() {
     super.connectedCallback()
     // Use the form to add formdata
-    if(this.for) {
+    if (this.for) {
       const form = document.querySelector<HTMLFormElement>(`form#${this.for}`)
-      if(form) {
+      if (form) {
         this.form = form
       }
     } else {
@@ -150,10 +150,10 @@ export class StateEditor extends LitElement {
    */
   protected _form: HTMLFormElement | null = null
   set form(newForm: HTMLFormElement | null) {
-    if(this._form) {
+    if (this._form) {
       this._form.removeEventListener('formdata', this.onFormdata_)
     }
-    if(newForm) {
+    if (newForm) {
       newForm.addEventListener('formdata', this.onFormdata_)
     }
   }
@@ -167,13 +167,13 @@ export class StateEditor extends LitElement {
   private _data: core.Token[] = []
   get data(): core.Token[] {
     const input = this.expressionInputRef.value
-    if(!this._selected || !this.editor) {
+    if (!this._selected || !this.editor) {
       console.error('selected and editor are required', this._selected, this.editor)
       //throw new Error('selected and editor are required')
       return []
     }
-    if(!input || input.value.length === 0) return []
-    if(input.fixed) {
+    if (!input || input.value.length === 0) return []
+    if (input.fixed) {
       return [getFixedToken(input.value[0] || '')]
     } else {
       const ids = input.value
@@ -182,7 +182,7 @@ export class StateEditor extends LitElement {
         .map(id => {
           try {
             return fromString(this.editor!, id, this.selected!.getId())
-          } catch(e) {
+          } catch (e) {
             console.error(`Error while getting token from id ${id}`, e)
             // Return unknown
             return {
@@ -200,20 +200,20 @@ export class StateEditor extends LitElement {
         // Add the options
         .map((token, idx) => {
           const popin = this.popinsRef[idx]?.value
-          switch(token.type) {
-          case 'property':
-          case 'filter':
-            token.options = popin?.value || token.options
-            break
-          default:
-            break
+          switch (token.type) {
+            case 'property':
+            case 'filter':
+              token.options = popin?.value || token.options
+              break
+            default:
+              break
           }
           return token
         })
     }
   }
   set data(value: core.Token[] | string) {
-    if(typeof value === 'string') {
+    if (typeof value === 'string') {
       this._data = value === '' ? [] : [getFixedToken(value)]
     } else {
       this._data = value
@@ -222,7 +222,7 @@ export class StateEditor extends LitElement {
   }
 
   private _editor: core.DataSourceEditor | null = null
-  @property({type: Object})
+  @property({ type: Object })
   get editor(): core.DataSourceEditor | null {
     return this._editor
   }
@@ -238,8 +238,8 @@ export class StateEditor extends LitElement {
   override render() {
     this.redrawing = true
     super.render()
-    if(!this.name) throw new Error('name is required on state-editor')
-    if(!this.editor || !this.selected) {
+    if (!this.name) throw new Error('name is required on state-editor')
+    if (!this.editor || !this.selected) {
       console.error('editor and selected are required', this.editor, this.selected)
       return html`<div class="ds-section
         ds-section--error">Error rendering state-editor component: editor and selected are required</div>`
@@ -274,7 +274,7 @@ export class StateEditor extends LitElement {
     const text = fixed ? (_currentValue![0] as core.Property)?.options?.value || '' : ''
 
     // Build the expression input
-    const result = html`
+    const result = /* html`${this.tagifyInput(_currentValue)}` || */ html`
       <expression-input
         @change=${(event: Event) => this.onChangeValue(event)}
         data-is-input
@@ -296,57 +296,59 @@ export class StateEditor extends LitElement {
             .value=${text}
             />
         </div>
-        ${ _currentValue && _currentValue.length > 0 ? html`
-          ${ _currentValue.map((token: core.Token, idx: number) => {
-    this.popinsRef[idx] = createRef<PopinForm>()
-    const optionsForm = this.getOptions(selected, _currentValue, idx)
-    const partialExpression = _currentValue.slice(0, idx)
+        ${_currentValue && _currentValue.length > 0 ? html`
+          ${_currentValue.map((token: core.Token, idx: number) => {
+      this.popinsRef[idx] = createRef<PopinForm>()
+      const optionsForm = this.getOptions(selected, _currentValue, idx)
+      const partialExpression = _currentValue.slice(0, idx)
 
-    const _partialCompletion = getCompletion({
-      component: this.dismissCurrentComponentStates ? selected.parent()! : selected,
-      expression: partialExpression,
-      dataTree,
-      rootType: this.rootType,
-      currentStateId: idx === 0 ? this.parentName || this.name : undefined,
-      hideLoopData: this.hideLoopData,
-    })
-    const partialCompletion = this.noFilters ? _partialCompletion
-      .filter(token => token.type !== 'filter')
-      : _partialCompletion
-    const partialGroupedCompletion = groupByType(this.editor!, selected, partialCompletion, _currentValue.slice(0, idx))
-    const id = toId(token)
-    return html`
+      const _partialCompletion = getCompletion({
+        component: this.dismissCurrentComponentStates ? selected.parent()! : selected,
+        expression: partialExpression,
+        dataTree,
+        rootType: this.rootType,
+        currentStateId: idx === 0 ? this.parentName || this.name : undefined,
+        hideLoopData: this.hideLoopData,
+      })
+      const partialCompletion = this.noFilters ? _partialCompletion
+        .filter(token => token.type !== 'filter')
+        : _partialCompletion
+      const partialGroupedCompletion = groupByType(this.editor!, selected, partialCompletion, _currentValue.slice(0, idx))
+      const id = toId(token)
+      return html`
+
               <select>
                 <option value="">-</option>
-                ${ Object.entries(partialGroupedCompletion)
-    .reverse()
-    .map(([type, completion]) => {
-      return html`
+                ${Object.entries(partialGroupedCompletion)
+          .slice()
+          .reverse()
+          .map(([type, completion]) => {
+            return html`
                       <optgroup label="${type}">
-                      ${ completion
-    .map(partialToken => ({
-      displayName: getTokenDisplayName(selected, partialToken),
-      partialToken,
-    }))
-    .sort((a, b) => a.displayName.localeCompare(b.displayName))
-    .map(({partialToken, displayName}) => {
-      const partialId = toId(partialToken)
-      return html`
+                      ${completion
+                .map(partialToken => ({
+                  displayName: getTokenDisplayName(selected, partialToken),
+                  partialToken,
+                }))
+                .sort((a, b) => a.displayName.localeCompare(b.displayName))
+                .map(({ partialToken, displayName }) => {
+                  const partialId = toId(partialToken)
+                  return html`
                             <option value=${toValue(partialToken)} .selected=${partialId === id}>${displayName}</option>
                           `
-    })
-}
+                })
+              }
                       </optgroup>
                     `
-    })
-}
+          })
+        }
               </select>
               <button
                 class="ds-expression-input__options-button"
                 style=${styleMap({ display: optionsForm === '' ? 'none' : '' })}
                 @click=${() => {
-    this.popinsRef[idx].value?.removeAttribute('hidden')
-  }}
+          this.popinsRef[idx].value?.removeAttribute('hidden')
+        }}
               >...</button>
               <popin-form
                 ${ref(this.popinsRef[idx])}
@@ -357,34 +359,34 @@ export class StateEditor extends LitElement {
                 ${optionsForm}
               </popin-form>
               `
-  })
-}
-        ` : '' }
+    })
+        }
+        ` : ''}
         ${Object.entries(groupedCompletion).length ? html`
           <select
             class="ds-expression-input__add"
             ${ref(el => el && ((el as HTMLSelectElement).value = ''))}
             >
             <option value="" selected>+</option>
-            ${ Object.entries(groupedCompletion)
-    .reverse()
-    .map(([type, completion]) => {
-      return html`
+            ${Object.entries(groupedCompletion)
+          .reverse()
+          .map(([type, completion]) => {
+            return html`
                     <optgroup label="${type}">
-                    ${ completion
-    .map(token => ({
-      displayName: getTokenDisplayName(selected, token),
-      token,
-    }))
-    .sort((a, b) => a.displayName.localeCompare(b.displayName))
-    .map(({displayName, token}) => {
-      return html`<option value="${toValue(token)}">${displayName}</option>`
-    })
-}
+                    ${completion
+                .map(token => ({
+                  displayName: getTokenDisplayName(selected, token),
+                  token,
+                }))
+                .sort((a, b) => a.displayName.localeCompare(b.displayName))
+                .map(({ displayName, token }) => {
+                  return html`<option value="${toValue(token)}">${displayName}</option>`
+                })
+              }
                     </optgroup>
                 `
-    })
-}
+          })
+        }
           </select>
       ` : ''}
       </expression-input>
@@ -392,17 +394,54 @@ export class StateEditor extends LitElement {
     this.redrawing = false
     return result
   }
+  tagifyInput(_currentValue: core.Token[]): unknown {
+    function getCompletion(e) {
+      const el = e.target;
+      const pos = el.selectionStart;
+      const value = el.value;
+    }
+    const doTagify = (el:Element) => {
+      if (!el) return;
+      const input = el;
+      // const input = document.createElement('input');
+      // input.type = 'text';
+      // el.replaceWith(input);
+      const tagify = new Tagify(input, {
+        mode: 'mix',
+        pattern: /@|#/,
+
+        dropdown: {
+          enabled: 1
+        },
+        whitelist: ["a", "aa", "b", "bb", "ccc"]
+      })
+      setTimeout(() => {
+        const btn = document.createElement('button');
+        el.getRootNode().appendChild(btn);
+        btn.innerText = 'clicketh upon me';
+      })
+    };
+    // setTimeout(() => {
+    //   doTagify(this.renderRoot.querySelector('input#' + id))
+    // }, 100);
+    // const win: any = window;
+    return html`
+    <div style="height: 2em">
+    <style>${tagifyCss}</style>
+    <input type="text" ${ref(doTagify)}/>
+    </div>`
+  }
 
   private onChangeValue(event: Event) {
-    if(this.redrawing) return
+    if (this.redrawing) return
     const idx = (event as CustomEvent).detail?.idx
-    if(idx >= 0) {
+    if (idx >= 0) {
       // Custom event coming from the expression input
       // Remove the tokens after the changed one
       const data = this.data.slice(0, idx + 1)
-      if(data.length > idx) {
+      if (data.length > idx) {
         // Clear options
-        if(data[idx].type === 'property' || data[idx].type === 'filter') {
+        if (data[idx].type === 'property' || data[idx].type === 'filter') {
           (data[idx] as core.Property | core.Filter).options = {}
         }
       } else {
@@ -420,8 +459,8 @@ export class StateEditor extends LitElement {
   }
 
   private onChangeOptions(event: Event, component: Component, popin: PopinForm, idx: number) {
-    if(this.redrawing) return
-    if(!this.editor) throw new Error('editor is required')
+    if (this.redrawing) return
+    if (!this.editor) throw new Error('editor is required')
     const input = this.expressionInputRef.value!
     const tokensStrings = input.value
     // Get tokens as objects
@@ -430,9 +469,9 @@ export class StateEditor extends LitElement {
       .map(id => {
         try {
           return fromString(this.editor!, id, component.getId())
-        } catch(e) {
+        } catch (e) {
           // FIXME: notify user
-          console.error('Error while getting token from string', {id}, e)
+          console.error('Error while getting token from string', { id }, e)
           // Return unknown
           return {
             type: 'property',
@@ -448,8 +487,8 @@ export class StateEditor extends LitElement {
     // Get the selected options
     const options = input.options
       .filter(o => o.selected)
-    // Update the options of the token
-    ;(tokens[idx] as core.Property | core.Filter).options = popin.value
+      // Update the options of the token
+      ; (tokens[idx] as core.Property | core.Filter).options = popin.value
     // Update the dom
     options[idx].value = toValue(tokens[idx])
     // Update the state
@@ -463,7 +502,7 @@ export class StateEditor extends LitElement {
   }
 
   private getOptions(component: Component, tokens: core.Token[], idx: number): TemplateResult | '' {
-    if(!this.editor) throw new Error('editor is required')
+    if (!this.editor) throw new Error('editor is required')
     const dataTree = this.editor.DataSourceManager.getDataTree()
     const token = tokens[idx]
     const beforeToken = tokens.slice(0, idx)
@@ -471,23 +510,23 @@ export class StateEditor extends LitElement {
       .map(token => {
         try {
           return getExpressionResultType(tokens.concat(token), component, dataTree)
-        } catch(e) {
+        } catch (e) {
           // FIXME: notify the user
           console.error(`Error while getting expression result type for token ${token} on component ${component.getName()}#${component.get('id')}.${component.getClasses().join('.')} (${component.cid})`, e)
           return null
         }
       })
 
-    switch(token.type) {
-    case 'property':
-    case 'filter':
-      if(token.optionsForm) {
-        const form = token.optionsForm(component, fields[fields.length - 1], token.options || {}, this.parentName || this.name, this.editor)
-        return form || ''
-      }
-      return ''
-    default:
-      return ''
+    switch (token.type) {
+      case 'property':
+      case 'filter':
+        if (token.optionsForm) {
+          const form = token.optionsForm(component, fields[fields.length - 1], token.options || {}, this.parentName || this.name, this.editor)
+          return form || ''
+        }
+        return ''
+      default:
+        return ''
     }
   }
 }

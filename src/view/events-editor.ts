@@ -330,6 +330,7 @@ export class EventsEditor extends LitElement {
     }
     component.set('events', events.slice());
     this.requestUpdate();
+    this.editor.trigger('component:update', component);
 
   }
 
@@ -343,6 +344,9 @@ export class EventsEditor extends LitElement {
       events.splice(idx, 1);
       component.set('events', events);
       this.requestUpdate();
+
+      this.editor.trigger('component:update', component);
+
     }
 
   }
@@ -350,7 +354,7 @@ export class EventsEditor extends LitElement {
   getStateEditor(selected: Component, name: string) {
     const id = NS + '--' + name;
     const evt = this.ensureEvents(selected).find(e => e.get('name') === name)!;
-    const expr = JSON.parse(evt.get('expression')!)
+    const expr = JSON.parse(evt.get('expression')! || (evt as any).get('attributes')?.expression!)
     return html`
       <state-editor
         .selected=${selected}
@@ -376,6 +380,8 @@ export class EventsEditor extends LitElement {
     const evt = events.find(event => event.get('name') === name);
     evt?.set('expression', JSON.stringify(eventEditor.data));
     component.set('events', events);
+    this.editor.trigger('component:update', component);
+
     save(this.editor);
 
   }

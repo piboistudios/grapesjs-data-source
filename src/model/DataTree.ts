@@ -94,6 +94,7 @@ export class DataTree {
    * Read only, updated when data sources are updated
    */
   protected _allTypes: Type[] = []
+  BASE_DATA_SOURCES: IDataSource[] = [];
   public get allTypes(): Type[] {
     return this._allTypes
   }

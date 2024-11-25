@@ -96,7 +96,6 @@ export function getContext(component: Component, dataTree: DataTree, currentStat
     fixedValue,
   ]
 }
-
 /**
  * Create a property token from a field
  */
@@ -144,7 +143,7 @@ function stateSetter(editor:DataSourceEditor, opts:any): Field {
       let elStates = el.get('publicStates');
       do {
         states.push(...(el.get('publicStates') || []));
-      } while((el = el.parent()) && (elStates = el.get('publicStates')))
+      } while((el = el.parent()))
       return html`
       <label>
         <p>Key:</p>

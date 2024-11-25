@@ -15,19 +15,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import settings from './settings'
 import { DataSourceEditor, DataSourceEditorViewOptions, getElementFromOption, Properties } from '..'
 import { PROPERTY_STYLES } from './defaultStyles'
 
 import { PropertiesEditor } from './properties-editor'
 import { CustomStatesEditor } from './custom-states-editor'
 
-import settings from './settings'
 
 import '@silexlabs/expression-input/dist/popin-form.js'
 import './properties-editor'
 import './custom-states-editor'
 import './events-editor'
+import './props-editor'
 import { EventsEditor } from './events-editor'
+import { PropsEditor } from './props-editor'
 
 export default (editor: DataSourceEditor, opts: Partial<DataSourceEditorViewOptions> = {}) => {
   if (opts.el) {
@@ -108,6 +110,26 @@ export default (editor: DataSourceEditor, opts: Partial<DataSourceEditorViewOpti
         </style>
       </events-editor>
     `
+    const props =  `
+      <props-editor
+        class="ds-props"
+        title="Props"
+        default-fixed=${options.defaultFixed}
+        create-prompt="Name of the prop"
+        rename-prompt="Rename the prop"
+        root-type="__actions"
+        default-name="New attribute"
+        reserved-names=${Object.keys(Properties).join(',')}
+        help-text="
+          Props of the element.\n
+          Set reactive/dynamic props/traits for the component. All traits above can be used as keys.
+        "
+        >
+        <style>
+          ${options.styles}
+        </style>
+      </props-editor>
+    `
     const properties = options.disableProperties ? '' : `
       <properties-editor
         class="ds-properties"
@@ -120,10 +142,12 @@ export default (editor: DataSourceEditor, opts: Partial<DataSourceEditorViewOpti
     `
     const dm = editor.DataSourceManager;
     wrapper.innerHTML = `
+      ${props}
       ${states}
       ${attributes}
       ${properties}
       ${events}
+
     `
 
     // Build the settings view
@@ -142,12 +166,14 @@ export default (editor: DataSourceEditor, opts: Partial<DataSourceEditorViewOpti
       const statesUi = wrapper.querySelector('custom-states-editor.ds-states') as CustomStatesEditor
       const attributesUi = wrapper.querySelector('custom-states-editor.ds-attributes') as CustomStatesEditor
       const eventsUi = wrapper.querySelector('events-editor.ds-events') as EventsEditor
+      const propsUi = wrapper.querySelector('props-editor.ds-props') as PropsEditor
 
       // Init web components
       propertiesUi?.setEditor(editor)
       statesUi?.setEditor(editor)
       attributesUi?.setEditor(editor)
       eventsUi?.setEditor(editor)
+      propsUi?.setEditor(editor)
 
       // Show the UI when the button is clicked
       if (options.button) {

@@ -14,15 +14,21 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+import { debounce } from 'underscore'
 
 import Backbone from 'backbone'
 import { COMPONENT_STATE_CHANGED, DATA_SOURCE_CHANGED, DATA_SOURCE_ERROR, DATA_SOURCE_READY, DataSourceId, Field, Filter, IDataSource, IDataSourceModel, Property, StoredToken, Type } from '../types'
-import { DataSourceEditor, DataSourceEditorOptions, getActionsType, getComponentDebug, NOTIFICATION_GROUP } from '..'
+import { DataSourceEditor, DataSourceEditorOptions, getComponentDebug, NOTIFICATION_GROUP } from '..'
 import { DataTree } from './DataTree'
 import { Component, Page } from 'grapesjs'
-import { StoredState, onStateChange } from './state'
+import { StoredState, StoredStateWithId, onStateChange } from './state'
 import getLiquidFilters from '../filters/liquid'
 import getGenericFilters from '../filters/generic'
+import { createJSONEditor } from 'vanilla-jsoneditor/standalone.js'
+import { html } from 'lit'
+import { ref } from 'lit/directives/ref.js'
+import jsoneditorCss from './fixtures/jsoneditor.css.js'
+
 
 /**
  * FIXME: Why sometimes the methods of the data source are in the attributes?
@@ -83,13 +89,19 @@ export class DataSourceManager extends Backbone.Collection<IDataSourceModel> {
           .map((filter: Filter) => ({ ...filter, type: 'filter' })) as Filter[]
       }
     })()
-    this.models.push(new ActionsDataSource(this.editor))
+    const actions = new ActionsDataSource(this.editor);
+    this.models.push(actions);
+
+    const core = new CoreDataSource(this.editor);
+    this.models.push(core);
+
     // Init the data tree
     this.dataTree = new DataTree(editor, {
       dataSources: this.models,
       filters,
     })
-
+    this.dataTree.BASE_DATA_SOURCES.push(actions);
+    this.dataTree.BASE_DATA_SOURCES.push(core);
     // Update the data tree when the data sources change
     this.on('add update remove change', () => this.modelChanged())
     this.on(DATA_SOURCE_READY, () => this.modelReady())
@@ -227,7 +239,67 @@ export class DataSourceManager extends Backbone.Collection<IDataSourceModel> {
       }, {} as Record<DataSourceId, string>)
   }
 }
+function stateSetter(editor: DataSourceEditor, opts: any): Field {
+  const saveState = debounce(() => {
+    editor.store();
+  }, 1000);
+  return {
+    arguments: [
+      {
+        name: "key",
+        typeId: "string",
+        defaultValue: "key"
+      },
+      {
+        name: "value",
+        typeId: "unknown",
+        defaultValue: "[]"
+      }
+    ],
+    optionsForm: (selected, input, options: any, state) => {
+      options.key ??= '';
+      options.value ??= '[]';
 
+      const states: StoredStateWithId[] = [];
+      let el: Component | undefined = selected;
+      let elStates = el.get('publicStates');
+      do {
+        states.push(...(el.get('publicStates') || []));
+      } while ((el = el.parent()))
+      return html`
+      <label>
+        <p>Key:</p>
+        <select @input=${saveState} name="key" value=${options.key}>
+          ${states.map(s => {
+        return html`
+            ${s.id === options.key ?
+            html`<option value=${s.id} selected>${s.label}</option>` :
+            html`<option value=${s.id}>${s.label}</option>`
+          }
+            `
+      })}
+        </select>
+      </label>
+      <state-editor
+        .selected=${selected}
+        .editor=${editor}
+        name="value"
+        data-is-input
+        class="ds-state-editor__options"
+        .value=${options.value}
+        @change=${saveState}
+      >
+        <label slot="label">Value</label>
+      </state-editor>
+      `
+    },
+    typeIds: ['__actions'],
+    kind: 'object',
+    dataSourceId: ActionsDataSourceId,
+    ...opts,
+
+  }
+}
 export const ActionsDataSourceId = 'actions';
 class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
   constructor(editor: DataSourceEditor) {
@@ -263,7 +335,22 @@ class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
    */
   getTypes(): Type[] {
 
-    return [getActionsType(this.editor)]
+    return [{
+      id: '__actions',
+      label: 'Actions',
+      fields: [
+        stateSetter(this.editor, { label: "Set State", id: 'set_state' }),
+        stateSetter(this.editor, { label: "Coalesce w/ State", id: 'coalesce_w_state' }),
+        // stateSetter(editor, {label: "Coalesce w/ State", id: 'coalesce_w_state'}),
+
+      ]
+
+      // .map(e => ({
+      //   ...e,
+      //   kind: 'object',
+      //   typeIds: ['actions']
+      // }))
+    }]
   }
 
   /**
@@ -271,5 +358,108 @@ class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
    */
   getQueryables(): Field[] {
     return []
+  }
+}
+export const CoreDataSourceId = 'core';
+class CoreDataSource extends Backbone.Model<{}> implements IDataSource {
+  constructor(editor: DataSourceEditor) {
+    super()
+    this.editor = editor;
+  }
+  /**
+   * FIXME: this is required because _.uniqueId in backbone gives the same id as the one in the main app (c1), so we probably use a different underscore instance?
+   */
+  cid = CoreDataSourceId
+  editor: DataSourceEditor
+  /**
+   * Unique identifier of the data source
+   * This is used to retrieve the data source from the editor
+   */
+  id = CoreDataSourceId
+  label = 'Core'
+  hidden = false
+
+  /**
+   * Implement IDatasource
+   */
+  async connect(): Promise<void> { }
+  isConnected(): boolean { return true }
+
+  /**
+   * Implement IDatasource
+   */
+  getQuery(/*expressions: Expression[]*/): string { return '' }
+
+  /**
+   * Implement IDatasource
+   */
+  getTypes(): Type[] {
+
+    return [{
+      id: '__core',
+      label: 'Core',
+      fields: [
+        {
+          id: "json",
+          label: "JSON",
+          arguments: [
+            {
+              name: "value",
+              typeId: "unknown",
+              defaultValue: "{}"
+            }
+          ],
+          optionsForm: (selected, input, options: any, state) => {
+            let inputEl:HTMLInputElement;
+            return html`
+            <style>
+              ${jsoneditorCss}
+            </style>
+            <input name="value" value=${options.value} hidden type="text" ${ref(el => {
+              inputEl = el as any;
+            })}/>
+            <div ${ref(el => {
+              console.log("Value?", options);
+              const jeditor = createJSONEditor({
+                target: el,
+                props: {
+                  content: {text: options.value},
+                  onChange(updatedContent, previousContent, info) {
+                    console.log("updated JSON", ...arguments);
+                    if (inputEl) {
+                      const v:any = updatedContent;
+                      console.log("updating input el", v);
+                      options.value = inputEl.value = (v.text || JSON.stringify(v.json))
+                    }
+                  }
+                }
+              });
+              console.log("jeditor", jeditor);
+            })}>
+            </div>
+            `
+          },
+          typeIds: ['__core'],
+          kind: 'object',
+          dataSourceId: CoreDataSourceId,
+
+        }
+        // stateSetter(editor, {label: "Coalesce w/ State", id: 'coalesce_w_state'}),
+
+      ]
+
+      // .map(e => ({
+      //   ...e,
+      //   kind: 'object',
+      //   typeIds: ['actions']
+      // }))
+    }]
+  }
+
+  /**
+   * Implement IDatasource
+   */
+  getQueryables(): Field[] {
+    return this.getTypes()[0].fields;
   }
 }

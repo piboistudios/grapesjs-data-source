@@ -125,6 +125,7 @@ export interface FieldArgument {
   name: string
   typeId: TypeId
   defaultValue?: unknown
+  label?:string
 }
 export interface Field {
   id: FieldId

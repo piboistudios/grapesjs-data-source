@@ -50,7 +50,7 @@ export default (editor: DataSourceEditor, opts: Partial<DataSourceEditorOptions>
   // Create the data sources from config
   const dataSources = options.dataSources
     .map((ds: IDataSourceOptions) => createDataSource(ds))
-  
+
   // Connect the data sources (async)
   Promise.all(dataSources.map(ds => ds.connect()))
     // .then(() => console.info('Data sources connected'))

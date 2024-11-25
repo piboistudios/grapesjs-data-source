@@ -28,6 +28,7 @@ export declare class DataTree {
 	 * Read only, updated when data sources are updated
 	 */
 	protected _allTypes: Type[];
+	BASE_DATA_SOURCES: IDataSource[];
 	get allTypes(): Type[];
 	/**
 	 * All queryable fields from all data sources
@@ -153,6 +154,7 @@ export declare class DataSourceManager extends Backbone.Collection<IDataSourceMo
 	getPageQuery(page: Page): Record<DataSourceId, string>;
 }
 export declare const ActionsDataSourceId = "actions";
+export declare const CoreDataSourceId = "core";
 /**
  * Add the DataSourceManager to the GrapesJs editor
  */
@@ -227,6 +229,7 @@ export interface FieldArgument {
 	name: string;
 	typeId: TypeId;
 	defaultValue?: unknown;
+	label?: string;
 }
 export interface Field {
 	id: FieldId;
@@ -447,8 +450,9 @@ export declare function getTokenOptions(field: Field): {
  */
 export declare function optionsToOptionsForm(arr: {
 	name: string;
+	label: string;
 	value: unknown;
-}[]): (selected: Component, input: Field | null, options: Options, _: string, editor: DataSourceEditor) => TemplateResult;
+}[], field: Field): (selected: Component, input: Field | null, options: Options, _: string, editor: DataSourceEditor) => TemplateResult;
 /**
  * Utility function to shallow compare two objects
  * Used to compare options of tree items
@@ -661,6 +665,7 @@ export declare class StateEditor extends LitElement {
 	private expressionInputRef;
 	private popinsRef;
 	render(): TemplateResult<1>;
+	tagifyInput(_currentValue: core.Token[]): unknown;
 	private onChangeValue;
 	private onChangeOptions;
 	private getOptions;
