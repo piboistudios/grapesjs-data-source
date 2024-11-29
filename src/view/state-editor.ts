@@ -351,6 +351,7 @@ export class StateEditor extends LitElement {
         }}
               >...</button>
               <popin-form
+                no-auto-close
                 ${ref(this.popinsRef[idx])}
                 hidden
                 name=${`${this.name}_options_${idx}`}

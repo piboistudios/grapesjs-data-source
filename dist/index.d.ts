@@ -155,6 +155,7 @@ export declare class DataSourceManager extends Backbone.Collection<IDataSourceMo
 }
 export declare const ActionsDataSourceId = "actions";
 export declare const CoreDataSourceId = "core";
+export declare const HttpDataSourceId = "http";
 /**
  * Add the DataSourceManager to the GrapesJs editor
  */

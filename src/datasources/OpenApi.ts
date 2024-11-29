@@ -68,6 +68,7 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
   protected _types: Type[] = [];
   protected _queryables: Field[] = [];
   protected connected: boolean = false;
+  protected securityParams: any[] = [];
   get types() {
     if (this._types) {
       const doc = this.get('doc');
@@ -76,6 +77,66 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
           .map(([type, schema]) => {
             return this.toType(type, schema)
           })
+          .concat(
+            Object.entries(doc.paths)
+              .flatMap(
+                ([path, methods]) => Object.entries(methods)
+                  .flatMap(([method, def]) => {
+                    const auxTypes = [];
+                    const type = {
+                      id: [method, path, 'response'].join('_'),
+                      dataSourceId: this.get('id'),
+                      label: [method.toUpperCase(), path, 'Response'].join(' '),
+                      fields: Object.entries(def.responses)
+                        .map(([code, { content }]: [string, any]) => {
+                          const namespace = [method, path, code, 'response'].join('_');
+                          const jsonSchema = content?.['application/json']?.schema;
+                          const id = code.toString();
+                          const dataSourceId = this.get('id');
+                          const label = [code, "Response"].join(' ');
+                          if (!jsonSchema) return {
+                            id,
+                            label,
+                            dataSourceId,
+                            kind: 'scalar',
+                            typeIds: ['String']
+                          };
+                          const schema = jsonSchema.$ref ? this.resolve(jsonSchema.$ref) : jsonSchema;
+                          // console.log("the schema", { method, path, code, content, schema });
+                          let kind = 'object';
+                          const typeIds = [];
+                          if (schema.type) {
+                            if (schema.type === 'object') kind = 'object'
+                            else if (schema.type === 'array') kind = 'list'
+                            else kind = 'scalar';
+                          }
+                          if (jsonSchema.$ref) {
+                            typeIds.push(jsonSchema.$ref);
+                          } else {
+                            if (schema.type === 'array' && schema.items) {
+                              typeIds.push(namespace);
+                              auxTypes.push(this.toType(namespace, schema.items, false))
+                            } else if (schema.type === 'object' && schema.properties) {
+                              auxTypes.push(this.toType(namespace, schema, false))
+                              typeIds.push(namespace);
+                            } else if (TYPE_MAP[schema.type]) {
+                              typeIds.push(TYPE_MAP[schema.type]);
+                            }
+                          }
+                          // auxTypes.length && console.log("aux types:", auxTypes);
+                          return {
+                            id,
+                            label,
+                            typeIds,
+                            kind,
+                            dataSourceId,
+                          } as Field
+                        }).filter(Boolean)
+                    } as any;
+                    return [...auxTypes, type];
+                  })
+              )
+          )
           .concat(
             ['String', 'Int', 'Float', 'Boolean', 'ID', 'Unknown']
               .map(t => ({
@@ -121,6 +182,19 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
       headers: this.get('headers') || {}
     });
     const doc = await res.json();
+    if (doc?.components?.securitySchemes)
+      for (const name in doc.components.securitySchemes) {
+        const securitySchema = doc.components.securitySchemes[name];
+        if (securitySchema.in && securitySchema.name) {
+          this.securityParams.push({
+            name: securitySchema.name,
+            in: securitySchema.in,
+            schema: {
+              type: 'string'
+            }
+          })
+        }
+      }
     doc.fieldMappings = {};
     (Object.entries(doc.paths).forEach(([path, methods]) => {
       (Object.entries(methods).forEach(([method, def]) => {
@@ -129,7 +203,7 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
         const options = {};
         const body = this.getBody(def);
         const bodyType = body && this.getBodyType(body);
-        def?.parameters && (def.parameters.filter(Boolean).forEach(_param => {
+        def?.parameters && (def.parameters.concat(this.securityParams).filter(Boolean).forEach(_param => {
           const param = _param?.$ref ? this.resolve(_param?.$ref) : _param;
           if (!param) return;
           const key = OpenApi.toFieldId(path, method, param.name);
@@ -152,6 +226,7 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
         };
       }));
     }));
+    
     this.set('doc', doc);
     this.connected = true;
 
@@ -179,9 +254,10 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
   getQuery(trees: Tree[]): string {
     return '<server-side-rendered>'
   }
-  toType(type: string, schema: any): Type {
+  toType(type: string, schema: any, prefixed = true): Type {
+    if (schema.$ref) schema = this.resolve(schema.$ref);
     return {
-      id: '#/components/schemas/' + type,
+      id: (prefixed ? '#/components/schemas/' : '') + type,
       dataSourceId: this.get('id'),
       label: type,
       fields: Object.entries(schema.properties)
@@ -258,7 +334,7 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
     return {
       id: this.getFieldId(path, method, def),
       label: def.operationId ? `${def.operationId} (${method} ${path})` : method + ' ' + path,
-      arguments: (def.parameters || [])
+      arguments: (def.parameters || []).concat(this.securityParams)
         .map(_param => _param?.$ref ? this.resolve(_param?.$ref) : _param)
         .filter(Boolean)
         .map((t: any) => ({
@@ -276,8 +352,8 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
           })))
         .filter(Boolean),
       dataSourceId: this.get('id'),
-      typeIds: [...new Set(schemas.flatMap(this.getSchemaTypes.bind(this)))] as any[],
-      kind
+      typeIds: [[method.toLowerCase(), path, 'response'].join('_')],// [...new Set(schemas.flatMap(this.getSchemaTypes.bind(this)))] as any[],
+      kind: 'object'
     }
   }
   getBodyType(body: any) {

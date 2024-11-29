@@ -205,7 +205,7 @@ export function getExpressionResultType(expression: Expression, component: Compo
  */
 export function getTokenOptions(field: Field): { optionsForm: (selected: Component, input: Field | null, options: Options, _: string, editor: DataSourceEditor) => TemplateResult, options: Options } | null {
   if (field.optionsForm || (field.arguments && field.arguments.length > 0)) {
-    console.log("THE FIELD", field);
+    // console.log("THE FIELD", field);
     const ret = {
       optionsForm: field.optionsForm || optionsToOptionsForm(field.arguments!.map((arg) => ({ name: arg.name, label: arg.label, value: arg.defaultValue })), field),
       options: !field.arguments ? {} : field.arguments.reduce((options: Record<string, unknown>, arg: FieldArgument) => {
@@ -223,7 +223,7 @@ export function getTokenOptions(field: Field): { optionsForm: (selected: Compone
  * Get the options of a token or a field
  */
 export function optionsToOptionsForm(arr: { name: string; label: string; value: unknown }[], field: Field): (selected: Component, input: Field | null, options: Options, _: string, editor: DataSourceEditor) => TemplateResult {
-  console.log("MAKING OPTIONS FORM FROM", arr);
+  // console.log("MAKING OPTIONS FORM FROM", arr);
   const ARR = arr.map(o => ({ ...o }));
   return (selected: Component, input: Field | null, options: Options, _: string, editor: DataSourceEditor) => {
     return html`
