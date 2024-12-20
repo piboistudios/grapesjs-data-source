@@ -5,7 +5,7 @@ import { getOrCreatePersistantId, getState, getStateIds, StoredState, StoredStat
 import { getExpressionResultType, getTokenOptions } from './token'
 import { getFixedToken } from '../utils'
 import { html } from 'lit'
-import {debounce} from 'underscore'
+import { debounce } from 'underscore'
 
 /**
  * Get the context of a component
@@ -41,42 +41,45 @@ export function getContext(component: Component, dataTree: DataTree, currentStat
     if (parent !== component || !hideLoopData) { // If it is a loop on the parent or if we don't hide the loop data
       const loopDataState = getState(parent, '__data', false)
       if (loopDataState) {
+        let loopDataField:any = {};
         try {
-          const loopDataField = getExpressionResultType(loopDataState.expression, parent, dataTree)
-          if (loopDataField) {
-            const displayName = (label: string) => `${parent.getName() ?? 'Unknown'}'s ${loopDataField.label} ${label}`
-            if (loopDataField.kind === 'list') {
-              loopProperties.push({
-                type: 'state',
-                storedStateId: '__data',
-                componentId: getOrCreatePersistantId(parent),
-                exposed: false,
-                forceKind: 'object', // FIXME: this may be a scalar
-                label: `Loop data (${loopDataField.label})`,
-              }, {
-                type: 'property',
-                propType: 'field',
-                fieldId: 'forloop.index0',
-                label: displayName('forloop.index0'),
-                kind: 'scalar',
-                typeIds: ['number'],
-              }, {
-                type: 'property',
-                propType: 'field',
-                fieldId: 'forloop.index',
-                label: displayName('forloop.index'),
-                kind: 'scalar',
-                typeIds: ['number'],
-              })
-            } else {
-              console.warn('Loop data is not a list for component', parent, 'and state', loopDataState)
-            }
-          } else {
-            console.warn('Loop data type not found for component', parent, 'and state', loopDataState)
-          }
+          loopDataField = getExpressionResultType(loopDataState.expression, parent, dataTree) || {}
         } catch (e) {
           console.error('Error while getting loop data for component', parent, 'and state', loopDataState)
         }
+        const loopIsState = loopDataState.expression?.[0]?.type === 'state';
+        if (loopIsState || loopDataField) {
+          const displayName = (label: string) => `${parent.getName() ?? 'Unknown'}'s ${loopDataField.label ?? ''} ${label}`
+          if (loopIsState || loopDataField.kind === 'list') {
+            loopProperties.push({
+              type: 'state',
+              storedStateId: '__data',
+              componentId: getOrCreatePersistantId(parent),
+              exposed: false,
+              forceKind: 'object', // FIXME: this may be a scalar
+              label: `Loop data (${loopDataField.label ?? 'loop'})`,
+            }, {
+              type: 'property',
+              propType: 'field',
+              fieldId: 'forloop.index0',
+              label: displayName('forloop.index0'),
+              kind: 'scalar',
+              typeIds: ['number'],
+            }, {
+              type: 'property',
+              propType: 'field',
+              fieldId: 'forloop.index',
+              label: displayName('forloop.index'),
+              kind: 'scalar',
+              typeIds: ['number'],
+            })
+          } else {
+            console.warn('Loop data is not a list for component', parent, 'and state', loopDataState)
+          }
+        } else {
+          console.warn('Loop data type not found for component', parent, 'and state', loopDataState)
+        }
+
       }
     }
     // Go up to parent
@@ -113,14 +116,14 @@ export function fieldToToken(field: Field): Property {
     ...getTokenOptions(field) ?? {},
     optionsForm: field.optionsForm
   }
-  
+
   return ret;
 }
-export let ACTIONS: Type & {editor:DataSourceEditor};
-function stateSetter(editor:DataSourceEditor, opts:any): Field {
-  const saveState = debounce(()=>{
+export let ACTIONS: Type & { editor: DataSourceEditor };
+function stateSetter(editor: DataSourceEditor, opts: any): Field {
+  const saveState = debounce(() => {
     editor.store();
-  },1000);
+  }, 1000);
   return {
     arguments: [
       {
@@ -134,29 +137,28 @@ function stateSetter(editor:DataSourceEditor, opts:any): Field {
         defaultValue: "[]"
       }
     ],
-    optionsForm: (selected, input, options:any, state) => {
+    optionsForm: (selected, input, options: any, state) => {
       options.key ??= '';
       options.value ??= '[]';
-      
+
       const states: StoredStateWithId[] = [];
       let el: Component | undefined = selected;
       let elStates = el.get('publicStates');
       do {
         states.push(...(el.get('publicStates') || []));
-      } while((el = el.parent()))
+      } while ((el = el.parent()))
       return html`
       <label>
         <p>Key:</p>
         <select @input=${saveState} name="key" value=${options.key}>
           ${states.map(s => {
-            return html`
-            ${
-            s.id === options.key ?
-              html`<option value=${s.id} selected>${s.label}</option>` :
-              html`<option value=${s.id}>${s.label}</option>`
-              }
+        return html`
+            ${s.id === options.key ?
+            html`<option value=${s.id} selected>${s.label}</option>` :
+            html`<option value=${s.id}>${s.label}</option>`
+          }
             `
-          })}
+      })}
         </select>
       </label>
       <state-editor
@@ -180,26 +182,26 @@ function stateSetter(editor:DataSourceEditor, opts:any): Field {
   }
 }
 export function getActionsType(editor: DataSourceEditor) {
-    if (!editor) throw new Error("`editor` is required.");
-    const saveState = debounce(()=>{
-      editor.store();
-    },1000);
-    ACTIONS = {
-      editor,
-      id: '__actions',
-      label: 'Actions',
-      fields: [
-        stateSetter(editor, {label: "Set State", id: 'set_state'}),
-        stateSetter(editor, {label: "Coalesce w/ State", id: 'coalesce_w_state'}),
-        // stateSetter(editor, {label: "Coalesce w/ State", id: 'coalesce_w_state'}),
+  if (!editor) throw new Error("`editor` is required.");
+  const saveState = debounce(() => {
+    editor.store();
+  }, 1000);
+  ACTIONS = {
+    editor,
+    id: '__actions',
+    label: 'Actions',
+    fields: [
+      stateSetter(editor, { label: "Set State", id: 'set_state' }),
+      stateSetter(editor, { label: "Coalesce w/ State", id: 'coalesce_w_state' }),
+      // stateSetter(editor, {label: "Coalesce w/ State", id: 'coalesce_w_state'}),
 
-      ]
-      // .map(e => ({
-      //   ...e,
-      //   kind: 'object',
-      //   typeIds: ['actions']
-      // }))
-    };
+    ]
+    // .map(e => ({
+    //   ...e,
+    //   kind: 'object',
+    //   typeIds: ['actions']
+    // }))
+  };
   return ACTIONS;
 }
 /**
@@ -223,11 +225,11 @@ export function getCompletion(options: { component: Component, expression: Expre
     return getContext(component, dataTree, currentStateId, hideLoopData)
   }
   const field = getExpressionResultType(expression, component, dataTree)
-  if (!field) {
-    console.warn('Result type not found for expression', expression)
-    return []
-  }
-  return ([] as Token[])
+  // if (!field) {
+  //   console.warn('Result type not found for expression', expression)
+  //   return []
+  // }
+  return (!field ? [] : ([] as Token[])
     // Add fields if the kind is object
     .concat(field.kind === 'object' ? field.typeIds
       // Find possible types
@@ -244,11 +246,11 @@ export function getCompletion(options: { component: Component, expression: Expre
             typeIds: [typeId],
           }))
         }
-      ) : [])
+      ) : []))
     // Add filters
     .concat(
       dataTree.filters
         // Match input type
-        .filter(filter => filter.validate(field))
+        .filter(filter => expression?.[0]?.type === 'state' || filter.validate(field))
     )
 }

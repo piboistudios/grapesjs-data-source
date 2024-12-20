@@ -30,7 +30,7 @@ import tagifyCss from './fixtures/tagify.css'
 import '@silexlabs/expression-input'
 import { getCompletion } from '../model/completion'
 import { fromStored, getExpressionResultType } from '../model/token'
-
+const MAX_OPTION_LABEL_LENGTH = 128;
 /**
  * Editor for a state of the selected element's properties
  * 
@@ -334,7 +334,7 @@ export class StateEditor extends LitElement {
                 .map(({ partialToken, displayName }) => {
                   const partialId = toId(partialToken)
                   return html`
-                            <option value=${toValue(partialToken)} .selected=${partialId === id}>${displayName}</option>
+                            <option value=${toValue(partialToken)} .selected=${partialId === id}>${displayName.slice(0, MAX_OPTION_LABEL_LENGTH)}</option>
                           `
                 })
               }
@@ -381,7 +381,7 @@ export class StateEditor extends LitElement {
                 }))
                 .sort((a, b) => a.displayName.localeCompare(b.displayName))
                 .map(({ displayName, token }) => {
-                  return html`<option value="${toValue(token)}">${displayName}</option>`
+                  return html`<option value="${toValue(token)}">${displayName.slice(0, MAX_OPTION_LABEL_LENGTH)}</option>`
                 })
               }
                     </optgroup>

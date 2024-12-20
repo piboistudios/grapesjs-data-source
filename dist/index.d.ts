@@ -352,6 +352,7 @@ export interface StoredState {
 	label?: string;
 	hidden?: boolean;
 	expression: Expression;
+	computed?: boolean;
 }
 export interface StoredStateWithId extends StoredState {
 	id: StateId;

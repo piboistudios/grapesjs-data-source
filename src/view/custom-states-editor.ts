@@ -172,6 +172,18 @@ export class CustomStatesEditor extends LitElement {
     .map((item, index) => html`
             <div class="ds-states__item">
               ${this.getStateEditor(selected, item.state.label || '', item.name)}
+              <label>Computed?
+                <input type="checkbox" name="computed" .checked=${selected.get?.('publicStates')?.find?.(i => i.id === item.name)?.computed} @change=${(e:any) => {
+                    // const newItem = {...item, state: {...item.state, computed: e.target.checked } };
+                    // this.removeState(selected, item.name);
+                    // this.setState(selected, newItem.name, newItem.state);
+                    const pub = selected.get('publicStates');
+                    const thisstate = pub.find(i => i.id === item.name);
+                    thisstate.computed = e.target.checked;
+                    selected.set('publicStates', pub);
+                    this.requestUpdate();
+                }}/>
+              </label>
               <div class="ds-states__buttons">
                 <button
                   title="Remove this state"

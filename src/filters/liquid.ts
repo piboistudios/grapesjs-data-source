@@ -51,8 +51,98 @@ export function isDate(field: Field | null, scalarOnly = true): boolean {
 /**
  * Liquid filters
  */
-export default function(editor: DataSourceEditor): Filter[] {
+export default function (editor: DataSourceEditor): Filter[] {
   return [
+    {
+      type: "filter",
+      id: "json",
+      label: "json",
+      validate: () => true,
+      output: type => ({ ...type, dataSourceId: null, typeIds: ['string'] }),
+      apply: function json(o: any) {
+        return JSON.stringify(o)
+      },
+      options: {}
+    },
+    {
+      type: "filter",
+      id: "member",
+      label: "member",
+      validate: () => true,
+      output: type => ({ dataSourceId: null, ...type, kind: 'unknown', typeIds: ['string', 'int', 'date'] }),
+      apply: function member(o: any, { key }) {
+        if (!key) return o;
+        const [obj, prop] = drill(o, key);
+        return obj[prop];
+        function drill(obj, ...path) {
+
+          path = path.filter(Boolean).flatMap(p => p.split('.'))
+          return path.reduce((result, part, index, array) => {
+            if (index === array.length - 1) {
+              return [result ?? {}, part]
+            }
+            return result?.[part];
+          }, obj)
+        }
+      },
+      options: {
+        key: ''
+      },
+      optionsForm(selected, input, options, stateName, editor) {
+        return html`
+        <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          no-filters
+          data-is-input
+          class="ds-state-editor__options"
+          value=${options.key || []}
+          name="key"
+        >
+          <label slot="label">Key to access on</label>
+        </state-editor>
+        `
+      },
+    },
+    {
+      type: "filter",
+      id: "format_minutes",
+      label: "format_minutes",
+      validate: (field: Field | null) => isNumber(field),
+      output: type => ({ ...type, typeIds: ['String'] }),
+      apply: function formatMinutes(minutes: number) {
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+
+        const formattedHours = hours.toString();
+        const formattedMinutes = remainingMinutes.toString();
+        const ret = [];
+        if (hours) {
+          ret.push(`${formattedHours} hours`);
+        }
+        if (remainingMinutes) {
+          ret.push(`${formattedMinutes} mins`);
+        }
+        return ret.join(', ');
+      },
+      options: {
+        value: ''
+      },
+      optionsForm: (selected: Component, field: Field | null, options: Options, stateName: string) => html`
+        <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          name="value"
+          parent-name=${stateName}
+          data-is-input
+          no-filters
+          class="ds-state-editor__options"
+          value=${options.value || '[]'}
+        >
+          <label slot="label">Suffix</label>
+        </state-editor>
+      `,
+    },
     {
       type: 'filter',
       id: 'strip_html',
@@ -152,37 +242,71 @@ export default function(editor: DataSourceEditor): Filter[] {
           <label slot="label">Value to match</label>
         </state-editor>
     `,
-    }, {
-    // FIXME: the fields used in the expression are not available in the query
-    //   // https://liquidjs.com/filters/where_exp.html
-    //   type: 'filter',
-    //   id: 'where_exp',
-    //   label: 'where_exp',
-    //   validate: (field: Field | null) => !!field && field.kind === 'list',
-    //   output: field => field,
-    //   apply: (arr, options) => {
-    //     const { objectName, expression } = options as { objectName: string, expression: string }
-    //     return (arr as Record<string, unknown>[]).filter(item => {
-    //       // eslint-disable-next-line no-new-func
-    //       const fn = new Function(objectName, `return ${expression}`)
-    //       return fn(item)
-    //     })
-    //   },
-    //   options: {
-    //     objectName: 'item',
-    //     expression: 'item.key === "value"',
-    //   },
-    //   quotedOptions: ['objectName', 'expression'],
-    //   optionsKeys: ['objectName', 'expression'],
-    //   optionsForm: (selected: Component, field: Field | null, options: Options) => html`
-    //     <label>Object name
-    //       <input type="text" name="objectName" placeholder="Object name" .value=${options.objectName || 'item'}/>
-    //     </label>
-    //     <label>Expression (JS)
-    //       <input type="text" name="expression" placeholder="Expression" .value=${options.expression || 'item.key === "value"'}/>
-    //     </label>
-    //   `,
-    // }, {
+    },
+    {
+      type: 'filter',
+      id: 'sum',
+      label: 'sum',
+      validate: (field: Field | null) => !!field && field.kind === 'list',
+      output: field => field,
+      apply: (arr: any, options: any) => {
+        const { key } = options
+        return arr.reduce((total, item) => {
+          return total + item[key];
+        }, 0);
+      },
+      options: {
+        key: '',
+        value: '',
+      },
+      quotedOptions: ['key'],
+      optionsKeys: ['key'],
+      optionsForm: (selected: Component, field: Field | null, options: Options, stateName: string) => html`
+        <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          no-filters
+          data-is-input
+          class="ds-state-editor__options"
+          value=${options.key || []}
+          name="key"
+          root-type=${field?.typeIds[0] ?? ''}
+        >
+          <label slot="label">Key to sum up</label>
+        </state-editor>
+    `,
+    },
+    {
+      // FIXME: the fields used in the expression are not available in the query
+      //   // https://liquidjs.com/filters/where_exp.html
+      //   type: 'filter',
+      //   id: 'where_exp',
+      //   label: 'where_exp',
+      //   validate: (field: Field | null) => !!field && field.kind === 'list',
+      //   output: field => field,
+      //   apply: (arr, options) => {
+      //     const { objectName, expression } = options as { objectName: string, expression: string }
+      //     return (arr as Record<string, unknown>[]).filter(item => {
+      //       // eslint-disable-next-line no-new-func
+      //       const fn = new Function(objectName, `return ${expression}`)
+      //       return fn(item)
+      //     })
+      //   },
+      //   options: {
+      //     objectName: 'item',
+      //     expression: 'item.key === "value"',
+      //   },
+      //   quotedOptions: ['objectName', 'expression'],
+      //   optionsKeys: ['objectName', 'expression'],
+      //   optionsForm: (selected: Component, field: Field | null, options: Options) => html`
+      //     <label>Object name
+      //       <input type="text" name="objectName" placeholder="Object name" .value=${options.objectName || 'item'}/>
+      //     </label>
+      //     <label>Expression (JS)
+      //       <input type="text" name="expression" placeholder="Expression" .value=${options.expression || 'item.key === "value"'}/>
+      //     </label>
+      //   `,
+      // }, {
       // https://liquidjs.com/filters/find.html
       type: 'filter',
       id: 'find',
@@ -227,36 +351,36 @@ export default function(editor: DataSourceEditor): Filter[] {
         </state-editor>
       `,
     }, {
-    // FIXME: the fields used in the expression are not available in the query
-    //   // https://liquidjs.com/filters/find_exp.html
-    //   type: 'filter',
-    //   id: 'find_exp',
-    //   label: 'find_exp',
-    //   validate: (field: Field | null) => !!field && field.kind === 'list',
-    //   output: field => convertKind(field, 'list', 'object'),
-    //   apply: (arr, options) => {
-    //     const { objectName, expression } = options as { objectName: string, expression: string }
-    //     return (arr as Record<string, unknown>[]).find(item => {
-    //       // eslint-disable-next-line no-new-func
-    //       const fn = new Function(objectName, `return ${expression}`)
-    //       return fn(item)
-    //     })
-    //   },
-    //   options: {
-    //     objectName: 'item',
-    //     expression: 'item.key === "value"',
-    //   },
-    //   quotedOptions: ['objectName', 'expression'],
-    //   optionsKeys: ['objectName', 'expression'],
-    //   optionsForm: (selected: Component, field: Field | null, options: Options) => html`
-    //     <label>Object name
-    //       <input type="text" name="objectName" placeholder="Object name" .value=${options.objectName || 'item'}/>
-    //     </label>
-    //     <label>Expression (JS)
-    //       <input type="text" name="expression" placeholder="Expression" .value=${options.expression || 'item.key === "value"'}/>
-    //     </label>
-    //   `,
-    // }, {
+      // FIXME: the fields used in the expression are not available in the query
+      //   // https://liquidjs.com/filters/find_exp.html
+      //   type: 'filter',
+      //   id: 'find_exp',
+      //   label: 'find_exp',
+      //   validate: (field: Field | null) => !!field && field.kind === 'list',
+      //   output: field => convertKind(field, 'list', 'object'),
+      //   apply: (arr, options) => {
+      //     const { objectName, expression } = options as { objectName: string, expression: string }
+      //     return (arr as Record<string, unknown>[]).find(item => {
+      //       // eslint-disable-next-line no-new-func
+      //       const fn = new Function(objectName, `return ${expression}`)
+      //       return fn(item)
+      //     })
+      //   },
+      //   options: {
+      //     objectName: 'item',
+      //     expression: 'item.key === "value"',
+      //   },
+      //   quotedOptions: ['objectName', 'expression'],
+      //   optionsKeys: ['objectName', 'expression'],
+      //   optionsForm: (selected: Component, field: Field | null, options: Options) => html`
+      //     <label>Object name
+      //       <input type="text" name="objectName" placeholder="Object name" .value=${options.objectName || 'item'}/>
+      //     </label>
+      //     <label>Expression (JS)
+      //       <input type="text" name="expression" placeholder="Expression" .value=${options.expression || 'item.key === "value"'}/>
+      //     </label>
+      //   `,
+      // }, {
       type: 'filter',
       id: 'first',
       label: 'first',
@@ -329,9 +453,9 @@ export default function(editor: DataSourceEditor): Filter[] {
       validate: (field: Field | null) => !!field && (field.kind === 'list' || field.kind === 'object'),
       output: (field, options) => getFieldType(editor, field, options['key'] as string | undefined, null),
       apply: (arr, options) => arr instanceof Array ?
-              (arr as Record<string, unknown>[])
-                .map(item => item[options.key as string]) :
-              (arr as Record<string, unknown>)[options.key as string],
+        (arr as Record<string, unknown>[])
+          .map(item => item[options.key as string]) :
+        (arr as Record<string, unknown>)[options.key as string],
       options: {
         key: '',
       },
@@ -350,36 +474,36 @@ export default function(editor: DataSourceEditor): Filter[] {
           <label slot="label">Key to map</label>
         </state-editor>
       `,
-    // This is a dynamic key, but it's not working yet
-    // The problem is that output method can only return a single field, but we need to return a list of fields
-    // This was an attempt returning the first field only but this makes it impossible to select fields inside the result object and the query will not include the content of the fields we should return
-    // }, {
-    //   type: 'filter',
-    //   id: 'map-dynamic',
-    //   filterName: 'map',
-    //   label: 'map (dynamic key)',
-    //   validate: (field: Field | null) => !!field && (field.kind === 'list' || field.kind === 'object'),
-    //   // Any field can be chosen, so we return the first one
-    //   // Is multiple fields necessary? We will probably always have the same data structure there
-    //   output: (field) => field ? editor.DataSourceManager.getDataTree()
-    //     .getType(field.typeIds[0], field.dataSourceId ?? null)?.fields[0] ?? null : null,
-    //   apply: (arr, options) => (arr as Record<string, unknown>[]).map(item => item[options.key as string]),
-    //   options: {
-    //     key: '',
-    //   },
-    //   quotedOptions: [],
-    //   optionsForm: (field: Field | null, options: Options) => html`
-    //     <state-editor
-    //       no-filters
-    //       data-is-input
-    //       class="ds-state-editor__options"
-    //       value=${options.key || []}
-    //       name="key"
-    //       ${ref(el => el && (el as StateEditor).setEditor(editor))}
-    //     >
-    //       <label slot="label">Key to map (dyanamic)</label>
-    //     </state-editor>
-    //   `,
+      // This is a dynamic key, but it's not working yet
+      // The problem is that output method can only return a single field, but we need to return a list of fields
+      // This was an attempt returning the first field only but this makes it impossible to select fields inside the result object and the query will not include the content of the fields we should return
+      // }, {
+      //   type: 'filter',
+      //   id: 'map-dynamic',
+      //   filterName: 'map',
+      //   label: 'map (dynamic key)',
+      //   validate: (field: Field | null) => !!field && (field.kind === 'list' || field.kind === 'object'),
+      //   // Any field can be chosen, so we return the first one
+      //   // Is multiple fields necessary? We will probably always have the same data structure there
+      //   output: (field) => field ? editor.DataSourceManager.getDataTree()
+      //     .getType(field.typeIds[0], field.dataSourceId ?? null)?.fields[0] ?? null : null,
+      //   apply: (arr, options) => (arr as Record<string, unknown>[]).map(item => item[options.key as string]),
+      //   options: {
+      //     key: '',
+      //   },
+      //   quotedOptions: [],
+      //   optionsForm: (field: Field | null, options: Options) => html`
+      //     <state-editor
+      //       no-filters
+      //       data-is-input
+      //       class="ds-state-editor__options"
+      //       value=${options.key || []}
+      //       name="key"
+      //       ${ref(el => el && (el as StateEditor).setEditor(editor))}
+      //     >
+      //       <label slot="label">Key to map (dyanamic)</label>
+      //     </state-editor>
+      //   `,
     }, {
       type: 'filter',
       id: 'reverse',
@@ -746,7 +870,7 @@ export default function(editor: DataSourceEditor): Filter[] {
           <input type="text" name="format" placeholder="Format" .value=${options.format || '%a, %b %d, %y'}/>
         </label>
         <label>Time zone
-          <input type="text" name="timeZone" placeholder="Time zone" .value=${options.timeZone || '' }/>
+          <input type="text" name="timeZone" placeholder="Time zone" .value=${options.timeZone || ''}/>
         </label>
       `,
     },

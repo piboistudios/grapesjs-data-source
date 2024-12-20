@@ -24,6 +24,7 @@ import { Component, Page } from 'grapesjs'
 import { StoredState, StoredStateWithId, onStateChange } from './state'
 import getLiquidFilters from '../filters/liquid'
 import getGenericFilters from '../filters/generic'
+import ESTree from 'estree';
 import { createJSONEditor, renderValue } from 'vanilla-jsoneditor/standalone.js'
 import { html, render } from 'lit'
 import { ref } from 'lit/directives/ref.js'
@@ -244,7 +245,11 @@ export class DataSourceManager extends Backbone.Collection<IDataSourceModel> {
       }, {} as Record<DataSourceId, string>)
   }
 }
-function stateSetter(editor: DataSourceEditor, opts: any, anyKey = false): Field {
+function stateSetter(editor: DataSourceEditor, fieldOpts: any, _opts?: {
+  anyKey?: boolean,
+  keyOnly?: boolean
+}): Field {
+  _opts ??= {};
   const saveState = debounce(() => {
     editor.store();
   }, 1000);
@@ -263,24 +268,39 @@ function stateSetter(editor: DataSourceEditor, opts: any, anyKey = false): Field
     ],
     optionsForm: (selected, input, options: any, state) => {
       options.key ??= '';
-      options.value ??= '[]';
+      options.value ??= '';
 
       const states: StoredStateWithId[] = [];
-      if (!anyKey) {
+      if (!_opts.anyKey) {
 
         let el: Component | undefined = selected;
         let elStates = el.get('publicStates');
         do {
           states.push(...(el.get('publicStates') || []));
+          const privateStates = el.get('privateStates');
+          if (privateStates) {
+
+            const loopData = el.get('privateStates').find(s => s.id === '__data');
+            if (loopData) {
+              states.push({
+                ...loopData,
+                id: ['state',el.get('id-plugin-data-source'),'__data'].join('_').replace(/-/gi, '$'),
+                label: "Loop Data " + `(${el.tagName})`
+              });
+            }
+          }
         } while ((el = el.parent()))
       }
       return html`
       <label>
         <p>Key:</p>
-        ${anyKey ?
+        ${_opts.anyKey ?
           html`<input name="key" value=${options.key} type="text"/>`
           :
-          html`<select @input=${saveState} name="key" value=${options.key}>
+          html`
+          <input name="prop" placeholder="property" value=${options.prop} type="text"/>
+
+          <select @input=${saveState} name="key" value=${options.key}>
           ${states.map(s => {
             return html`
             ${s.id === options.key ?
@@ -292,7 +312,8 @@ function stateSetter(editor: DataSourceEditor, opts: any, anyKey = false): Field
         </select>
     }
       </label>
-      <state-editor
+      ${!_opts.keyOnly && html`
+        <state-editor
         .selected=${selected}
         .editor=${editor}
         name="value"
@@ -300,15 +321,16 @@ function stateSetter(editor: DataSourceEditor, opts: any, anyKey = false): Field
         class="ds-state-editor__options"
         .value=${options.value}
         @change=${saveState}
-      >
+        >
         <label slot="label">Value</label>
-      </state-editor>
+        </state-editor>
+        `}
       `
     },
     typeIds: ['__actions'],
     kind: 'object',
     dataSourceId: ActionsDataSourceId,
-    ...opts,
+    ...fieldOpts,
 
   }
 }
@@ -346,6 +368,180 @@ function stateGetter(editor: DataSourceEditor, opts: any, ds?: string, type?: st
 
   }
 }
+const TEST_OPS = ['truthy', 'falsy', '===', '==', '<=', '<', '>', '>=', "!=", "!=="];
+const conditionalOptionsForm = (opts?) => function (selected, input, options, stateName) {
+  opts ??= {};
+  options.testLeft ??= '';
+  options.testRight ??= '';
+  options.consequent ??= '';
+  options.alternate ??= '';
+  const saveState = debounce(() => {
+    this.editor.store();
+  }, 1000);
+  let testRightEl: Element;
+  return html`
+      <section style="display:flex;align-items:center;" class="ds-section">
+      <state-editor
+        .selected=${selected}
+        .editor=${this.editor}
+        name="testLeft"
+        .value=${options.testLeft}
+        @change=${saveState}
+          data-is-input
+        class="ds-state-editor__options"
+      >
+        <label slot="label">Expr</label>
+      </state-editor>
+      <select @input=${(e: InputEvent) => {
+      if (['truthy', 'falsy'].includes((e.target as HTMLOptionElement).value) && testRightEl) {
+        testRightEl.setAttribute('hidden', '');
+      } else if (testRightEl.hasAttribute('hidden')) {
+        testRightEl.removeAttribute('hidden');
+      }
+      saveState();
+    }} name="testOp">
+        ${TEST_OPS.map(op => html`
+          <option value=${op} selected=${options.testOp === op}>${op}</option>`
+    )}
+      </select>
+      <state-editor
+        .selected=${selected}
+        .editor=${this.editor}
+        ${ref(el => {
+      testRightEl = el;
+    })}
+        name="testRight"
+          data-is-input
+        class="ds-state-editor__options"
+        .value=${options.testRight}
+        @change=${saveState}
+      >
+        <label slot="label">Expr</label>
+      </state-editor>
+      </section>
+      <state-editor
+        .selected=${selected}
+        .editor=${this.editor}
+        .root-type=${opts.result === 'expression' ? null : '__actions'}
+        name="consequent"
+          data-is-input
+        class="ds-state-editor__options"
+        .value=${options.consequent}
+        @change=${saveState}
+      >
+        <label slot="label">Consequent</label>
+      </state-editor>
+      <state-editor
+        .selected=${selected}
+        .editor=${this.editor}
+        .root-type=${opts.result === 'expression' ? null : '__actions'}
+        name="alternate"
+          data-is-input
+        class="ds-state-editor__options"
+        .value=${options.alternate}
+        @change=${saveState}
+      >
+        <label slot="label">Alternate</label>
+      </state-editor>
+    `
+}
+const BINOPS: any[] = [
+  "==",
+  "!=",
+  "===",
+  "!==",
+  "<",
+  "<=",
+  ">",
+  ">=",
+  "<<",
+  ">>",
+  ">>>",
+  "+",
+  "-",
+  "*",
+  "/",
+  "%",
+  "**",
+  "|",
+  "||",
+  "&&",
+  "^",
+  "&",
+  "in",
+  "instanceof"
+
+]
+const binopOptionsForm = (opts?) => function (selected, input, options, stateName) {
+  opts ??= {};
+  options.left ??= '';
+  options.right ??= '';
+  const saveState = debounce(() => {
+    this.editor.store();
+  }, 1000);
+  return html`
+      <section style="display:flex;align-items:center;" class="ds-section">
+      <state-editor
+        .selected=${selected}
+        .editor=${this.editor}
+        name="left"
+        .value=${options.left}
+        @change=${saveState}
+          data-is-input
+        class="ds-state-editor__options"
+      >
+        <label slot="label">Expr</label>
+      </state-editor>
+      <select @input=${saveState} name="op">
+        ${BINOPS.map(op => html`
+          <option value=${op} .selected=${options.op === op}>${op}</option>`
+  )}
+      </select>
+      <state-editor
+        .selected=${selected}
+        .editor=${this.editor}
+       
+        name="right"
+          data-is-input
+        class="ds-state-editor__options"
+        .value=${options.right}
+        @change=${saveState}
+      >
+        <label slot="label">Expr</label>
+      </state-editor>
+      </section>
+    `
+}
+const UNOPS: ESTree.UnaryExpression["operator"][] = [
+  "-", "+", "!", "~", "typeof", "void", "delete"
+];
+const unopOptionsForm = (opts?) => function (selected, input, options, stateName) {
+  opts ??= {};
+  options.argument ??= '';
+  options.op ??= '';
+  const saveState = debounce(() => {
+    this.editor.store();
+  }, 1000);
+  return html`
+      <section style="display:flex;align-items:center;" class="ds-section">
+      <state-editor
+        .selected=${selected}
+        .editor=${this.editor}
+        name="argument"
+        .value=${options.argument}
+        @change=${saveState}
+          data-is-input
+        class="ds-state-editor__options"
+      >
+        <label slot="label">Expr</label>
+      </state-editor>
+      <select @input=${saveState} name="op">
+        ${UNOPS.map(op => html`
+          <option value=${op} .selected=${options.op === op}>${op}</option>`
+  )}
+      </select>
+    `
+}
 export const ActionsDataSourceId = 'actions';
 class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
   constructor(editor: DataSourceEditor) {
@@ -380,20 +576,202 @@ class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
    * Implement IDatasource
    */
   getTypes(): Type[] {
-
     return [{
       id: '__actions',
       label: 'Actions',
       fields: [
-        stateSetter(this.editor, { label: "Set State", id: 'set_state' }),
-        stateSetter(this.editor, { label: "Coalesce w/ State", id: 'coalesce_w_state' }),
-        stateSetter(this.editor, { label: "Set Session", id: 'set_session' }, true),
-        stateSetter(this.editor, { label: "Set Cookie", id: 'set_cookie' }, true),
-        stateSetter(this.editor, { label: "Set Local", id: 'set_local' }, true),
-        stateSetter(this.editor, { label: "Coalesce w/ Session", id: 'coalesce_w_session' }, true),
-        stateSetter(this.editor, { label: "Coalesce w/ Cookie", id: 'coalesce_w_cookie' }, true),
-        stateSetter(this.editor, { label: "Coalesce w/ Local", id: 'coalesce_w_local' }, true),
-        // stateSetter(editor, {label: "Coalesce w/ State", id: 'coalesce_w_state'}),
+        {
+          id: "email",
+          label: 'Send Email Template',
+          dataSourceId: ActionsDataSourceId,
+          typeIds: ['__actions'],
+          kind: 'object',
+          arguments: [
+            {
+              name: "expression",
+              typeId: "unknown",
+              defaultValue: "[]"
+            },
+            {
+              name: "template",
+              typeId: "unknown",
+              defaultValue: "[]"
+            }
+          ],
+          optionsForm: (selected, input, options, stateName) => {
+            const saveState = debounce(() => {
+              this.editor.store();
+            }, 1000);
+            options.expression ??= '';
+            return html`
+            <label>
+              Template:
+              <input value=${options.template} name="template" type="text" />
+            </label>
+             <state-editor
+                  .selected=${selected}
+                  .editor=${this.editor}
+                    class="ds-state-editor__options"
+                  data-is-input
+                  name="expression"
+                  .value=${options.expression}
+                  @change=${saveState}
+                >
+                  <label slot="label">Expression</label>
+                </state-editor>
+            `
+          }
+        },
+        ...['increment', 'decrement', 'toggle', 'flag', 'unflag']
+          .flatMap(k => {
+            const proper = k.charAt(0).toUpperCase() + k.slice(1);
+            return [
+              stateSetter(this.editor, { label: `${proper} State`, id: `${k}_state` }, { keyOnly: true }),
+              stateSetter(this.editor, { label: `${proper} Session`, id: `${k}_session` }, { anyKey: true, keyOnly: true }),
+              stateSetter(this.editor, { label: `${proper} Cookie`, id: `${k}_cookie` }, { anyKey: true, keyOnly: true }),
+              stateSetter(this.editor, { label: `${proper} Local`, id: `${k}_local` }, { anyKey: true, keyOnly: true }),
+            ]
+          }),
+        ...['set', 'coalesce_w', 'append_to', 'prepend_to', 'add_to', 'subtract_from', 'multiply', 'divide']
+          .flatMap(k => {
+            const proper = k.charAt(0).toUpperCase() + k.slice(1).replace(/_/gi, ' ');
+            return [
+              stateSetter(this.editor, { label: `${proper} State`, id: `${k}_state` }),
+              stateSetter(this.editor, { label: `${proper} Session`, id: `${k}_session` }, { anyKey: true, }),
+              stateSetter(this.editor, { label: `${proper} Cookie`, id: `${k}_cookie` }, { anyKey: true, }),
+              stateSetter(this.editor, { label: `${proper} Local`, id: `${k}_local` }, { anyKey: true, }),
+            ]
+          }),
+        // {
+        //   id: "from_server",
+        //   label: 'Live from Server',
+        //   dataSourceId: ActionsDataSourceId,
+        //   typeIds: ['__actions'],
+        //   kind: 'object',
+        //   arguments: [
+        //     {
+        //       name: "expression",
+        //       typeId: "unknown",
+        //       defaultValue: "[]"
+        //     }
+        //   ],
+        //   optionsForm: (selected, input, options, stateName) => {
+        //     const saveState = debounce(() => {
+        //       this.editor.store();
+        //     }, 1000);
+        //     options.expression ??= '';
+        //     return html`
+        //      <state-editor
+        //           .selected=${selected}
+        //           .editor=${this.editor}
+        //             class="ds-state-editor__options"
+        //           root-type="__actions"
+        //           data-is-input
+        //           name="expression"
+        //           .value=${options.expression}
+        //           @change=${saveState}
+        //         >
+        //           <label slot="label">Expression</label>
+        //         </state-editor>
+        //     `
+        //   }
+        // },
+        {
+          id: 'for_of',
+          arguments: [
+            {
+              name: "loopVarName",
+              typeId: "scalar",
+              defaultValue: ""
+            }, {
+              name: "of",
+              typeId: "unknown",
+              defaultValue: ""
+            }, {
+              name: "stmt",
+              typeId: "unknown",
+              defaultValue: ""
+            },
+          ],
+          optionsForm: (selected, input, options, stateName) => {
+            options.stmt ??= '';
+            options.of ??= '';
+            const saveState = debounce(() => {
+              this.editor.store();
+            }, 1000);
+            return html`
+              <section style="display:flex;align-items:center;" class="ds-section">
+                <label>
+                Loop Var Name:
+                <input type="text" name="loopVarName" value=${options.loopVarName}
+                </label>
+                  <state-editor
+                  .selected=${selected}
+                  .editor=${this.editor}
+                            class="ds-state-editor__options"
+                  name="of"
+            data-is-input
+                  .value=${options.of}
+                  @change=${saveState}
+                >
+                  <label slot="label">Of</label>
+                </state-editor>
+                </section>
+          
+                    <state-editor
+                  .selected=${selected}
+                  .editor=${this.editor}
+                            class="ds-state-editor__options"
+                  name="stmt"
+                  root-type="__actions"
+            data-is-input
+                  .value=${options.stmt}
+                  @change=${saveState}
+                >
+                  <label slot="label">Statement</label>
+                </state-editor>
+              `
+          },
+          label: 'For of loop',
+          dataSourceId: ActionsDataSourceId,
+          typeIds: ['__actions'],
+          kind: 'object',
+        },
+        {
+          id: 'case',
+          optionsForm: conditionalOptionsForm({ result: 'statement' }).bind(this),
+          arguments: [
+            {
+              name: "testLeft",
+              typeId: "unknown",
+              defaultValue: ""
+            },
+            {
+              name: "testOp",
+              typeId: "scalar",
+              defaultValue: "truthy"
+            },
+            {
+              name: "testRight",
+              typeId: "unknown",
+              defaultValue: ""
+            },
+            {
+              name: "consequent",
+              typeId: "unknown",
+              defaultValue: ""
+            }, {
+              name: "alternate",
+              typeId: "unknown",
+              defaultValue: ""
+            }
+          ],
+          label: 'Case',
+          dataSourceId: ActionsDataSourceId,
+          typeIds: ['__actions'],
+          kind: 'object',
+        }
+        // stateSetter(editor, {label: `Coalesce w/ State", id: 'coalesce_w_state'}),
 
       ]
 
@@ -410,6 +788,70 @@ class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
    */
   getQueryables(): Field[] {
     return []
+  }
+}
+const LoopActionDataSourceId = '__action_loop';
+class LoopActionDataSource extends Backbone.Model<{}> implements IDataSource {
+  constructor(editor: DataSourceEditor) {
+    super(editor)
+  }
+  /**
+   * FIXME: this is required because _.uniqueId in backbone gives the same id as the one in the main app (c1), so we probably use a different underscore instance?
+   */
+  cid = LoopActionDataSourceId
+  editor: DataSourceEditor
+  /**
+   * Unique identifier of the data source
+   * This is used to retrieve the data source from the editor
+   */
+  id = LoopActionDataSourceId
+  label = 'Actions'
+  hidden = false
+
+  /**
+   * Implement IDatasource
+   */
+  async connect(): Promise<void> { }
+  isConnected(): boolean { return true }
+
+  /**
+   * Implement IDatasource
+   */
+  getQuery(/*expressions: Expression[]*/): string { return '' }
+
+  /**
+   * Implement IDatasource
+   */
+  getTypes(): Type[] {
+    return [{
+      id: '__action_loop',
+      label: 'Action Loop',
+      fields: [
+        {
+          id: "loop_var",
+          label: "$x",
+          dataSourceId: LoopActionDataSourceId,
+          kind: "object",
+          typeIds: ['string', 'number', 'date'],
+        }
+        // stateSetter(editor, {label: `Coalesce w/ State", id: 'coalesce_w_state'}),
+
+      ]
+
+      // .map(e => ({
+      //   ...e,
+      //   kind: 'object',
+      //   typeIds: ['actions']
+      // }))
+    }];
+
+  }
+
+  /**
+   * Implement IDatasource
+   */
+  getQueryables(): Field[] {
+    return this.getTypes()[0].fields;
   }
 }
 export const CoreDataSourceId = 'core';
@@ -453,6 +895,86 @@ class CoreDataSource extends Backbone.Model<{}> implements IDataSource {
       id: '__core',
       label: 'Core',
       fields: [
+        {
+          id: 'binop',
+          optionsForm: binopOptionsForm({ result: 'expression' }).bind(this),
+          arguments: [
+            {
+              name: "left",
+              typeId: "unknown",
+              defaultValue: ""
+            },
+            {
+              name: "op",
+              typeId: "scalar",
+              defaultValue: "+"
+            },
+            {
+              name: "right",
+              typeId: "unknown",
+              defaultValue: ""
+            },
+          ],
+          label: 'Binop',
+          dataSourceId: CoreDataSourceId,
+          typeIds: ['__core'],
+          kind: 'object',
+        },
+        {
+          id: 'unop',
+          optionsForm: unopOptionsForm({ result: 'expression' }).bind(this),
+          arguments: [
+            {
+              name: "argument",
+              typeId: "unknown",
+              defaultValue: ""
+            },
+            {
+              name: "op",
+              typeId: "scalar",
+              defaultValue: "+"
+            },
+          
+          ],
+          label: 'Unop',
+          dataSourceId: CoreDataSourceId,
+          typeIds: ['__core'],
+          kind: 'object',
+        },
+        {
+          id: 'ternary',
+          optionsForm: conditionalOptionsForm({ result: 'expression' }).bind(this),
+          arguments: [
+            {
+              name: "testLeft",
+              typeId: "unknown",
+              defaultValue: ""
+            },
+            {
+              name: "testOp",
+              typeId: "scalar",
+              defaultValue: "truthy"
+            },
+            {
+              name: "testRight",
+              typeId: "unknown",
+              defaultValue: ""
+            },
+            {
+              name: "consequent",
+              typeId: "unknown",
+              defaultValue: ""
+            }, {
+              name: "alternate",
+              typeId: "unknown",
+              defaultValue: ""
+            }
+          ],
+          label: 'Ternary',
+          dataSourceId: CoreDataSourceId,
+          typeIds: ['__core'],
+          kind: 'object',
+        },
         {
           id: "json",
           label: "JSON",
@@ -677,6 +1199,7 @@ class HttpDataSource extends Backbone.Model<{}> implements IDataSource {
         stateGetter(this.editor, { label: "Get Query", id: "get_query" }, "http", "__http"),
         stateGetter(this.editor, { label: "Get Body", id: "get_body" }, "http", "__http"),
         stateGetter(this.editor, { label: "Get Local", id: "get_local" }, "http", "__http"),
+        stateGetter(this.editor, { label: "Get Env", id: "get_env" }, "http", "__http"),
         // stateSetter(editor, {label: "Coalesce w/ State", id: 'coalesce_w_state'}),
 
       ]

@@ -38,6 +38,7 @@ interface Item {
   id: string
   name: string
   expression: string
+  modelable: boolean
 }
 const NS = 'props--' + ((Math.round(Math.random() * 100_000)) + Date.now());
 /**
@@ -174,7 +175,14 @@ export class PropsEditor extends LitElement {
         .map((item, index) => html`
             <div class="ds-props__item">
               ${this.getStateEditor(selected, item.get('name')!)}
-              
+              <label>
+                Modelable?
+                <input type="checkbox" name="modelable" .checked=${(item as any).modelable || item.get('modelable')} @change=${(e:InputEvent) => {
+                  item.set('modelable', (e.target as HTMLInputElement).checked);
+                  this.requestUpdate()
+
+                }}/>
+              </label>
               <div class="ds-props__buttons">
                 <button
                   title="Remove this prop"
@@ -394,6 +402,7 @@ export class PropsEditor extends LitElement {
       id: label,
       name: label,
       expression: "[]",
+      modelable: false
     });
     this.setProp(component, label, evt)
 

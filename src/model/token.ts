@@ -137,7 +137,7 @@ export function propertyToField(property: Property, dataTree: DataTree, componen
     if (ds) {
 
       const matchingField = ds.getQueryables().find(q => q.id === property.fieldId);
-      if (matchingField) return matchingField; 
+      if (matchingField) return matchingField;
     }
   }
   const typeNames = property.typeIds
@@ -226,9 +226,18 @@ export function optionsToOptionsForm(arr: { name: string; label: string; value: 
   // console.log("MAKING OPTIONS FORM FROM", arr);
   const ARR = arr.map(o => ({ ...o }));
   return (selected: Component, input: Field | null, options: Options, _: string, editor: DataSourceEditor) => {
+    if (!field.dataSourceId && field.id === 'fixed') {
+      const value = options.value ?? ''
+
+      return html`
+              <label>Value
+                <input type="text" name="value" .value=${value}>
+              </label>`;
+    }
     return html`
               ${ARR.map((obj) => {
       const value = options[obj.name] ?? obj.value ?? ''
+
       // return html`<label>${obj.name}</label><input type="text" name=${obj.name} .value=${value}>`
       return html`<state-editor
           .selected=${selected}
@@ -243,6 +252,11 @@ export function optionsToOptionsForm(arr: { name: string; label: string; value: 
         </state-editor>`
     })
       }
+      ${field.dataSourceId && ('' + field.dataSourceId).indexOf('ds-') === 0 ? html`
+        <label> Cache Lifespan (in seconds)
+          <input name="cacheLifespan" type="number" value=${options.cacheLifespan} />
+        </label>
+        ` : ''}
           `
   }
 }
