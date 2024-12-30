@@ -17,7 +17,7 @@
 import { debounce } from 'underscore'
 import _set from 'lodash.set';
 import Backbone from 'backbone'
-import { COMPONENT_STATE_CHANGED, DATA_SOURCE_CHANGED, DATA_SOURCE_ERROR, DATA_SOURCE_READY, DataSourceId, Field, Filter, IDataSource, IDataSourceModel, Property, StoredToken, Type } from '../types'
+import { COMPONENT_STATE_CHANGED, DATA_SOURCE_CHANGED, DATA_SOURCE_ERROR, DATA_SOURCE_READY, DataSourceId, Field, FieldKind, Filter, IDataSource, IDataSourceModel, Property, StoredToken, Type } from '../types'
 import { DataSourceEditor, DataSourceEditorOptions, getComponentDebug, NOTIFICATION_GROUP } from '..'
 import { DataTree } from './DataTree'
 import { Component, Page } from 'grapesjs'
@@ -373,6 +373,7 @@ const conditionalOptionsForm = (opts?) => function (selected, input, options, st
   opts ??= {};
   options.testLeft ??= '';
   options.testRight ??= '';
+  options.testOp ??= 'truthy'
   options.consequent ??= '';
   options.alternate ??= '';
   const saveState = debounce(() => {
@@ -422,7 +423,7 @@ const conditionalOptionsForm = (opts?) => function (selected, input, options, st
       <state-editor
         .selected=${selected}
         .editor=${this.editor}
-        .root-type=${opts.result === 'expression' ? null : '__actions'}
+        root-type=${opts.result === 'expression' ? '' : '__actions'}
         name="consequent"
           data-is-input
         class="ds-state-editor__options"
@@ -431,10 +432,11 @@ const conditionalOptionsForm = (opts?) => function (selected, input, options, st
       >
         <label slot="label">Consequent</label>
       </state-editor>
+      <p>${opts.result}</p>
       <state-editor
         .selected=${selected}
         .editor=${this.editor}
-        .root-type=${opts.result === 'expression' ? null : '__actions'}
+        root-type=${opts.result === 'expression' ? '' : '__actions'}
         name="alternate"
           data-is-input
         class="ds-state-editor__options"
@@ -581,6 +583,89 @@ class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
       label: 'Actions',
       fields: [
         {
+          id: "scroll_to",
+          label: "Scroll To Selector",
+          typeIds: ['__actions'],
+          kind: 'object',
+          dataSourceId: ActionsDataSourceId,
+          arguments: [
+            {
+              name: "target",
+              typeId: "unknown",
+              defaultValue: "[]"
+            }
+          ],
+          optionsForm: (selected, input, options, stateName) => {
+            const saveState = debounce(() => {
+              this.editor.store();
+            }, 1000);
+            options.target ??= '';
+            return html`
+             <state-editor
+                  .selected=${selected}
+                  .editor=${this.editor}
+                    class="ds-state-editor__options"
+                  data-is-input
+                  name="target"
+                  .value=${options.target}
+                  @change=${saveState}
+                >
+                  <label slot="label">Target Selector</label>
+                </state-editor>
+            `
+          },
+        },
+        {
+          id: "open",
+          label: "Open URL",
+          typeIds: ['__actions'],
+          dataSourceId: ActionsDataSourceId,
+          kind: 'object',
+          arguments: [
+            {
+              name: "target",
+              typeId: "unknown",
+              defaultValue: "[]"
+            },
+            {
+              name: "url",
+              typeId: "unknown",
+              defaultValue: "[]"
+            }
+          ],
+          optionsForm: (selected, input, options, stateName) => {
+            const saveState = debounce(() => {
+              this.editor.store();
+            }, 1000);
+            options.url ??= '';
+            options.target ??= '';
+            return html`
+             <state-editor
+                  .selected=${selected}
+                  .editor=${this.editor}
+                    class="ds-state-editor__options"
+                  data-is-input
+                  name="url"
+                  .value=${options.url}
+                  @change=${saveState}
+                >
+                  <label slot="label">URL</label>
+                </state-editor>
+             <state-editor
+                  .selected=${selected}
+                  .editor=${this.editor}
+                    class="ds-state-editor__options"
+                  data-is-input
+                  name="target"
+                  .value=${options.target}
+                  @change=${saveState}
+                >
+                  <label slot="label">Target</label>
+                </state-editor>
+            `
+          },
+        },
+        {
           id: "email",
           label: 'Send Email Template',
           dataSourceId: ActionsDataSourceId,
@@ -608,6 +693,13 @@ class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
               Template:
               <input value=${options.template} name="template" type="text" />
             </label>
+            <label>
+              Client Side?
+              <input type="checkbox" .checked=${options.clientSide} @change=${e => {
+                options.value = e.target.checked;
+                saveState();
+              }} name="clientSide" />
+            </label>
              <state-editor
                   .selected=${selected}
                   .editor=${this.editor}
@@ -626,20 +718,20 @@ class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
           .flatMap(k => {
             const proper = k.charAt(0).toUpperCase() + k.slice(1);
             return [
-              stateSetter(this.editor, { label: `${proper} State`, id: `${k}_state` }, { keyOnly: true }),
               stateSetter(this.editor, { label: `${proper} Session`, id: `${k}_session` }, { anyKey: true, keyOnly: true }),
               stateSetter(this.editor, { label: `${proper} Cookie`, id: `${k}_cookie` }, { anyKey: true, keyOnly: true }),
               stateSetter(this.editor, { label: `${proper} Local`, id: `${k}_local` }, { anyKey: true, keyOnly: true }),
+              stateSetter(this.editor, { label: `${proper} State`, id: `${k}_state` }, { keyOnly: true }),
             ]
           }),
         ...['set', 'coalesce_w', 'append_to', 'prepend_to', 'add_to', 'subtract_from', 'multiply', 'divide']
           .flatMap(k => {
             const proper = k.charAt(0).toUpperCase() + k.slice(1).replace(/_/gi, ' ');
             return [
-              stateSetter(this.editor, { label: `${proper} State`, id: `${k}_state` }),
               stateSetter(this.editor, { label: `${proper} Session`, id: `${k}_session` }, { anyKey: true, }),
               stateSetter(this.editor, { label: `${proper} Cookie`, id: `${k}_cookie` }, { anyKey: true, }),
               stateSetter(this.editor, { label: `${proper} Local`, id: `${k}_local` }, { anyKey: true, }),
+              stateSetter(this.editor, { label: `${proper} State`, id: `${k}_state` }),
             ]
           }),
         // {
@@ -895,6 +987,39 @@ class CoreDataSource extends Backbone.Model<{}> implements IDataSource {
       id: '__core',
       label: 'Core',
       fields: [
+        ...["string","number","date","bool"].map(s => ({
+          id: s,
+          label: s.charAt(0).toUpperCase() + s.slice(1),
+          typeIds: ['__core'],
+          kind: 'object' as FieldKind,
+          dataSourceId: CoreDataSourceId,
+          arguments: [
+            {
+              name: "value",
+              typeId: "unknown",
+              defaultValue: "[]"
+            }
+          ],
+          optionsForm: (selected, input, options, stateName) => {
+            const saveState = debounce(() => {
+              this.editor.store();
+            }, 1000);
+            options.value ??= '';
+            return html`
+             <state-editor
+                  .selected=${selected}
+                  .editor=${this.editor}
+                    class="ds-state-editor__options"
+                  data-is-input
+                  name="value"
+                  .value=${options.value}
+                  @change=${saveState}
+                >
+                  <label slot="label">Value</label>
+                </state-editor>
+            `
+          },
+        })),
         {
           id: 'binop',
           optionsForm: binopOptionsForm({ result: 'expression' }).bind(this),
@@ -1209,13 +1334,21 @@ class HttpDataSource extends Backbone.Model<{}> implements IDataSource {
       //   kind: 'object',
       //   typeIds: ['actions']
       // }))
-    }, ...['string', 'number', 'date'].map(t => ({
+    }, ...['string', 'number'].map(t => ({
       id: t,
       dataSourceId: undefined,
       label: t,
       fields: [],
 
-    }))]
+    })),
+    {
+      id: 'to_date',
+      dataSourceId: undefined,
+      label: 'date',
+      fields: [],
+
+    }
+  ]
   }
 
   /**

@@ -352,7 +352,7 @@ export class EventsEditor extends LitElement {
   }
 
   getStateEditor(selected: Component, name: string) {
-    const id = NS + '--' + name;
+    const id = NS + '--' +  name.replace(/[:]/gi,'_');
     const evt = this.ensureEvents(selected).find(e => e.get('name') === name)!;
     const expr = JSON.parse(evt.get('expression')! || (evt as any).get('attributes')?.expression!)
     return html`
@@ -375,7 +375,7 @@ export class EventsEditor extends LitElement {
 
   onChange(component: Component, name: string) {
     if (this.redrawing) return
-    const eventEditor = this.shadowRoot!.querySelector(`#${NS + '--' + name}`) as StateEditor
+    const eventEditor = this.shadowRoot!.querySelector(`#${NS + '--' + name.replace(/[:]/gi,'_')}`) as StateEditor
     const events = this.ensureEvents(component);
     const evt = events.find(event => event.get('name') === name);
     evt?.set('expression', JSON.stringify(eventEditor.data));

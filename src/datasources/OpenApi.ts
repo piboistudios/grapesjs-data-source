@@ -181,6 +181,9 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
   }
   hidden?: boolean | undefined
   async connect(): Promise<void> {
+    try {
+
+    
     const res = await fetch((this.get('url') as string), {
       method: this.get('method'),
       headers: this.get('headers') || {}
@@ -207,7 +210,8 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
         const options = {};
         const body = this.getBody(def);
         const bodyType = body && this.getBodyType(body);
-        def?.parameters && (def.parameters.concat(this.securityParams).filter(Boolean).forEach(_param => {
+        const parameters = (def.parameters ?? []).concat(this.securityParams)
+        parameters.filter(Boolean).forEach(_param => {
           const param = _param?.$ref ? this.resolve(_param?.$ref) : _param;
           if (!param) return;
           const key = OpenApi.toFieldId(path, method, param.name);
@@ -215,7 +219,7 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
             name: param.name,
             in: param.in
           }
-        }));
+        });
         bodyType && bodyType?.properties && (Object.entries(bodyType.properties).forEach(([k, v]) => {
           const key = OpenApi.toFieldId(path, method, k);
           options[key] = {
@@ -233,7 +237,9 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
 
     this.set('doc', doc);
     this.connected = true;
-
+  } catch(e) {
+    console.error("Failed connecting OpenAPI DS:", e);
+  }
   }
   static toFieldId(path, method: string, name: any) {
     let str = [path, method, name].join(':').toLowerCase();

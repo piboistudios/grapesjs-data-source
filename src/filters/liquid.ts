@@ -181,7 +181,7 @@ export default function (editor: DataSourceEditor): Filter[] {
       label: 'prepend',
       validate: (field: Field | null) => isString(field),
       output: type => type,
-      apply: (str, options) => `${options.state}${str}`,
+      apply: (str, options) => `${options.value}${str}`,
       options: {
         value: '',
       },
@@ -252,8 +252,19 @@ export default function (editor: DataSourceEditor): Filter[] {
       apply: (arr: any, options: any) => {
         const { key } = options
         return arr.reduce((total, item) => {
-          return total + item[key];
+          const [obj, prop] = drill(item, key);
+          return total + (obj[prop] ?? 0);
         }, 0);
+        function drill(obj, ...path) {
+
+          path = path.filter(Boolean).flatMap(p => p.split('.'))
+          return path.reduce((result, part, index, array) => {
+            if (index === array.length - 1) {
+              return [result ?? {}, part]
+            }
+            return result?.[part];
+          }, obj)
+        }
       },
       options: {
         key: '',
@@ -535,10 +546,19 @@ export default function (editor: DataSourceEditor): Filter[] {
       options: {
         index: 0,
       },
-      optionsForm: (selected: Component, field: Field | null, options: Options) => html`
-        <label>Index
-          <input type="number" name="index" placeholder="Index" .value=${options.index}/>
-        </label>
+      optionsForm: (selected: Component, field: Field | null, options: Options, stateName) => html`
+        <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          name="index"
+          parent-name=${stateName}
+          data-is-input
+          no-filters
+          class="ds-state-editor__options"
+          value=${options.index || '[]'}
+        >
+          <label slot="label">Index</label>
+        </state-editor>
     `,
     }, {
       type: 'filter',
@@ -621,10 +641,19 @@ export default function (editor: DataSourceEditor): Filter[] {
       options: {
         value: 0,
       },
-      optionsForm: (selected: Component, field: Field | null, options: Options) => html`
-        <label>Value
-          <input type="number" name="value" placeholder="Value" .value=${options.value}/>
-        </label>
+      optionsForm: (selected: Component, field: Field | null, options: Options, stateName) => html`
+        <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          name="value"
+          parent-name=${stateName}
+          data-is-input
+          no-filters
+          class="ds-state-editor__options"
+          value=${options.value || '[]'}
+        >
+          <label slot="label">Value</label>
+        </state-editor>
       `,
     }, {
       type: 'filter',
@@ -636,10 +665,19 @@ export default function (editor: DataSourceEditor): Filter[] {
       options: {
         value: 0,
       },
-      optionsForm: (selected: Component, field: Field | null, options: Options) => html`
-        <label>Value
-          <input type="number" name="value" placeholder="Value" .value=${options.value}/>
-        </label>
+      optionsForm: (selected: Component, field: Field | null, options: Options, stateName) => html`
+        <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          name="value"
+          parent-name=${stateName}
+          data-is-input
+          no-filters
+          class="ds-state-editor__options"
+          value=${options.value || '[]'}
+        >
+          <label slot="label">Value</label>
+        </state-editor>
       `,
     }, {
       type: 'filter',
@@ -651,10 +689,19 @@ export default function (editor: DataSourceEditor): Filter[] {
       options: {
         value: 0,
       },
-      optionsForm: (selected: Component, field: Field | null, options: Options) => html`
-        <label>Value
-          <input type="number" name="value" placeholder="Value" .value=${options.value}/>
-        </label>
+      optionsForm: (selected: Component, field: Field | null, options: Options, stateName) => html`
+        <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          name="value"
+          parent-name=${stateName}
+          data-is-input
+          no-filters
+          class="ds-state-editor__options"
+          value=${options.value || '[]'}
+        >
+          <label slot="label">Value</label>
+        </state-editor>
       `,
     }, {
       type: 'filter',
@@ -666,10 +713,19 @@ export default function (editor: DataSourceEditor): Filter[] {
       options: {
         value: 0,
       },
-      optionsForm: (selected: Component, field: Field | null, options: Options) => html`
-        <label>Value
-          <input type="number" name="value" placeholder="Value" .value=${options.value}/>
-        </label>
+      optionsForm: (selected: Component, field: Field | null, options: Options, stateName) => html`
+        <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          name="value"
+          parent-name=${stateName}
+          data-is-input
+          no-filters
+          class="ds-state-editor__options"
+          value=${options.value || '[]'}
+        >
+          <label slot="label">Value</label>
+        </state-editor>
       `,
     }, {
       type: 'filter',
@@ -683,10 +739,19 @@ export default function (editor: DataSourceEditor): Filter[] {
       options: {
         value: 0,
       },
-      optionsForm: (selected: Component, field: Field | null, options: Options) => html`
-        <label>Value
-          <input type="number" name="value" placeholder="Value" .value=${options.value}/>
-        </label>
+      optionsForm: (selected: Component, field: Field | null, options: Options, stateName) => html`
+        <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          name="value"
+          parent-name=${stateName}
+          data-is-input
+          no-filters
+          class="ds-state-editor__options"
+          value=${options.value || '[]'}
+        >
+          <label slot="label">Value</label>
+        </state-editor>
       `,
     }, {
       type: 'filter',
@@ -745,10 +810,19 @@ export default function (editor: DataSourceEditor): Filter[] {
       options: {
         value: 0,
       },
-      optionsForm: (selected: Component, field: Field | null, options: Options) => html`
-        <label>Value
-          <input type="number" name="value" placeholder="Value" .value=${options.value}/>
-        </label>
+      optionsForm: (selected: Component, field: Field | null, options: Options, stateName) => html`
+       <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          name="value"
+          parent-name=${stateName}
+          data-is-input
+          no-filters
+          class="ds-state-editor__options"
+          value=${options.value || '[]'}
+        >
+          <label slot="label">Value</label>
+        </state-editor>
       `,
     }, {
       type: 'filter',
@@ -824,9 +898,20 @@ export default function (editor: DataSourceEditor): Filter[] {
       options: {
         length: 50,
       },
-      optionsForm: (selected: Component, field: Field | null, options: Options) => html`
+      optionsForm: (selected: Component, field: Field | null, options: Options, stateName: string) => html`
         <label>Length
-          <input type="number" name="length" placeholder="Length" .value=${options.length}/>
+          <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          name="length"
+          parent-name=${stateName}
+          data-is-input
+          no-filters
+          class="ds-state-editor__options"
+          value=${options.length || '[]'}
+        >
+          <label slot="label">Length</label>
+        </state-editor>
         </label>
       `,
     }, {
@@ -839,10 +924,19 @@ export default function (editor: DataSourceEditor): Filter[] {
       options: {
         length: 15,
       },
-      optionsForm: (selected: Component, field: Field | null, options: Options) => html`
-        <label>Length
-          <input type="number" name="length" placeholder="Length" .value=${options.length}/>
-        </label>
+      optionsForm: (selected: Component, field: Field | null, options: Options, stateName: string) => html`
+        <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          name="length"
+          parent-name=${stateName}
+          data-is-input
+          no-filters
+          class="ds-state-editor__options"
+          value=${options.length || '[]'}
+        >
+          <label slot="label">Length</label>
+        </state-editor>
       `,
     }, {
       type: 'filter',
@@ -857,21 +951,82 @@ export default function (editor: DataSourceEditor): Filter[] {
       }),
       apply: (date, options) => {
         const d = new Date(date as string)
-        return d.toLocaleDateString(options.format as string)
+        return strftime(d, options.format as string)
+        function strftime(date, format) {
+          const formats = {
+            '%Y': () => date.getFullYear(),                    // Full year (2024)
+            '%y': () => date.getFullYear().toString().slice(-2), // Year without century (24)
+            '%m': () => (date.getMonth() + 1).toString().padStart(2, '0'), // Month (01-12)
+            '%d': () => date.getDate().toString().padStart(2, '0'),        // Day of month (01-31)
+            '%H': () => date.getHours().toString().padStart(2, '0'),       // Hour in 24h format (00-23)
+            '%I': () => (date.getHours() % 12 || 12).toString().padStart(2, '0'), // Hour in 12h format (01-12)
+            '%M': () => date.getMinutes().toString().padStart(2, '0'),     // Minutes (00-59)
+            '%S': () => date.getSeconds().toString().padStart(2, '0'),     // Seconds (00-59)
+            '%a': () => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()], // Abbreviated weekday (Sun-Sat)
+            '%A': () => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][date.getDay()], // Full weekday
+            '%b': () => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][date.getMonth()], // Abbreviated month
+            '%B': () => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][date.getMonth()], // Full month
+            '%p': () => date.getHours() < 12 ? 'AM' : 'PM',    // AM/PM
+            '%P': () => date.getHours() < 12 ? 'am' : 'pm',    // am/pm   // AM/PM
+            '%w': () => date.getDay().toString(),              // Day of week (0-6)
+            '%j': () => {                                      // Day of year (001-366)
+              const start:any = new Date(date.getFullYear(), 0, 0);
+              const diff = date - start;
+              const day = Math.floor(diff / (1000 * 60 * 60 * 24));
+              return day.toString().padStart(3, '0');
+            },
+            '%U': () => {                                      // Week number (00-53) starting Sunday
+              const firstDay:any = new Date(date.getFullYear(), 0, 1);
+              const firstSunday:any = new Date(date.getFullYear(), 0, 1 + (7 - firstDay.getDay()));
+              const diff = date - firstSunday;
+              return Math.ceil(diff / (7 * 24 * 60 * 60 * 1000)).toString().padStart(2, '0');
+            },
+            '%W': () => {                                      // Week number (00-53) starting Monday
+              const firstDay:any = new Date(date.getFullYear(), 0, 1);
+              const firstMonday:any = new Date(date.getFullYear(), 0, 1 + (8 - firstDay.getDay()) % 7);
+              const diff = date - firstMonday;
+              return Math.ceil(diff / (7 * 24 * 60 * 60 * 1000)).toString().padStart(2, '0');
+            },
+            '%%': () => '%'                                    // Literal % character
+          };
+        
+          return format.replace(/%[A-Za-z%]/g, (match) => {
+            const formatter = formats[match];
+            return formatter ? formatter() : match;
+          });
+        }
       },
       options: {
         format: '%a, %b %d, %y', // Fri, Jul 17, 15
         timeZone: '',
       },
       optionsKeys: ['format', 'timeZone'],
-      quotedOptions: ['format', 'timeZone'],
-      optionsForm: (selected: Component, field: Field | null, options: Options) => html`
-        <label>Format
-          <input type="text" name="format" placeholder="Format" .value=${options.format || '%a, %b %d, %y'}/>
-        </label>
-        <label>Time zone
-          <input type="text" name="timeZone" placeholder="Time zone" .value=${options.timeZone || ''}/>
-        </label>
+      quotedOptions: ['format'],
+      optionsForm: (selected: Component, field: Field | null, options: Options, stateName) => html`
+        <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          name="format"
+          parent-name=${stateName}
+          data-is-input
+          no-filters
+          class="ds-state-editor__options"
+          value=${options.format || '[]'}
+        >
+          <label slot="label">Format</label>
+        </state-editor>
+        <state-editor
+          .selected=${selected}
+          .editor=${editor}
+          name="timeZone"
+          parent-name=${stateName}
+          data-is-input
+          no-filters
+          class="ds-state-editor__options"
+          value=${options.timeZone || '[]'}
+        >
+          <label slot="label">Timezone</label>
+        </state-editor>
       `,
     },
   ]

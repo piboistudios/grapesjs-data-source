@@ -5,7 +5,7 @@ import { TemplateResult, html } from 'lit'
 import { Component } from 'grapesjs'
 import { fromStored, getExpressionResultType } from './model/token'
 import GraphQL, { GraphQLOptions } from './datasources/GraphQL'
-import { OpenApiOptions } from './datasources/OpenApi'
+import OpenApi, { OpenApiOptions } from './datasources/OpenApi'
 
 export const NOTIFICATION_GROUP = 'Data source'
 
@@ -64,16 +64,16 @@ export function concatWithLength(desiredNumChars: number, ...strings: string[]):
  */
 export function getTokenDisplayName(component: Component, token: Token): string {
   switch (token.type) {
-  case 'property': {
-    const type = getTypeDisplayName(token.typeIds, token.kind)
-    return `${token.label} ${type}`
-  }
-  case 'filter': return token.label
-  case 'state':
-    return getStateDisplayName(component, token)
-  default:
-    console.error('Unknown token type (reading type)', token)
-    throw new Error('Unknown token type')
+    case 'property': {
+      const type = getTypeDisplayName(token.typeIds, token.kind)
+      return `${token.label} ${type}`
+    }
+    case 'filter': return token.label
+    case 'state':
+      return getStateDisplayName(component, token)
+    default:
+      console.error('Unknown token type (reading type)', token)
+      throw new Error('Unknown token type')
   }
 }
 
@@ -86,46 +86,46 @@ export function groupByType(editor: DataSourceEditor, component: Component, comp
     .reduce((acc, token) => {
       let label
       switch (token.type) {
-      case 'filter': label = 'Filters'; break
-      case 'property': {
-        if(token.dataSourceId) {
-          if(expression.length > 0) {
-            try {
-              const type = getExpressionResultType(expression, component, editor.DataSourceManager.getDataTree())
-              label = type?.label ?? type?.id ?? 'Unknown'
-            } catch(e) {
-              // FIXME: notify user
-              console.error('Error while getting expression result type in groupByType', {expression, component, dataTree: editor.DataSourceManager.getDataTree()})
-              label = 'Unknown'
+        case 'filter': label = 'Filters'; break
+        case 'property': {
+          if (token.dataSourceId) {
+            if (expression.length > 0) {
+              try {
+                const type = getExpressionResultType(expression, component, editor.DataSourceManager.getDataTree())
+                label = type?.label ?? type?.id ?? 'Unknown'
+              } catch (e) {
+                // FIXME: notify user
+                console.error('Error while getting expression result type in groupByType', { expression, component, dataTree: editor.DataSourceManager.getDataTree() })
+                label = 'Unknown'
+              }
+            } else {
+              const dataSource: IDataSourceModel = editor.DataSourceManager.get(token.dataSourceId)
+              if (dataSource) {
+                label = dataSource.get('label') || token.dataSourceId
+              } else {
+                console.error('Data source not found', token.dataSourceId)
+                editor.runCommand('notifications:add', {
+                  type: 'error',
+                  group: NOTIFICATION_GROUP,
+                  message: `Data source not found: ${token.dataSourceId}`,
+                })
+                throw new Error(`Data source not found: ${token.dataSourceId}`)
+              }
             }
           } else {
-            const dataSource: IDataSourceModel = editor.DataSourceManager.get(token.dataSourceId)
-            if(dataSource) {
-              label = dataSource.get('label') || token.dataSourceId
-            } else {
-              console.error('Data source not found', token.dataSourceId)
-              editor.runCommand('notifications:add', {
-                type: 'error',
-                group: NOTIFICATION_GROUP,
-                message: `Data source not found: ${token.dataSourceId}`,
-              })
-              throw new Error(`Data source not found: ${token.dataSourceId}`)
-            }
+            label = 'Fields'
           }
-        } else {
-          label = 'Fields'
+          break
         }
-        break
-      }
-      case 'state': {
-        const parent = getParentByPersistentId(token.componentId, component)
-        const name = parent?.get('tagName') === 'body' ? 'Website' : parent?.getName()
-        label = name ? `${name}'s states` : 'States'
-        break
-      }
-      default:
-        console.error('Unknown token type (reading type)', token)
-        throw new Error('Unknown token type')
+        case 'state': {
+          const parent = getParentByPersistentId(token.componentId, component)
+          const name = parent?.get('tagName') === 'body' ? 'Website' : parent?.getName()
+          label = name ? `${name}'s states` : 'States'
+          break
+        }
+        default:
+          console.error('Unknown token type (reading type)', token)
+          throw new Error('Unknown token type')
       }
       if (!acc[label]) acc[label] = []
       acc[label].push(token)
@@ -172,12 +172,12 @@ export function toValue(token: Token): string {
  */
 export function toId(token: Token): string {
   switch (token.type) {
-  case 'property': return `property__${token.dataSourceId || ''}__${token.fieldId}__${token.kind}__${token.typeIds.join(',')}`
-  case 'filter': return `filter____${token.id}`
-  case 'state': return `state__${token.componentId}__${token.storedStateId}`
-  default:
-    console.error('Unknown token type (reading type)', token)
-    throw new Error('Unknown token type')
+    case 'property': return `property__${token.dataSourceId || ''}__${token.fieldId}__${token.kind}__${token.typeIds.join(',')}`
+    case 'filter': return `filter____${token.id}`
+    case 'state': return `state__${token.componentId}__${token.storedStateId}`
+    default:
+      console.error('Unknown token type (reading type)', token)
+      throw new Error('Unknown token type')
   }
 }
 
@@ -193,28 +193,28 @@ export function fromString(editor: DataSourceEditor, id: string, componentId: st
  * Check if a json is an expression, i.e. an array of tokens
  */
 export function isExpression(json: unknown): boolean {
-  if(typeof json === 'string') throw new Error('json must be parsed')
+  if (typeof json === 'string') throw new Error('json must be parsed')
   if (!Array.isArray(json)) return false
   return json.every(token => {
     if (typeof token !== 'object') return false
     if (!token.type) return false
     switch (token.type) {
-    case 'property': {
-      if (!token.fieldId) return false
-      if (token.fieldId === FIXED_TOKEN_ID) {
-        if (!token.options?.value) return false
+      case 'property': {
+        if (!token.fieldId) return false
+        if (token.fieldId === FIXED_TOKEN_ID) {
+          if (!token.options?.value) return false
+        }
+        break
       }
-      break
-    }
-    case 'state': {
-      if (!token.componentId) return false
-      if (!token.storedStateId) return false
-      break
-    }
-    case 'filter': {
-      if (!token.id) return false
-      break
-    }
+      case 'state': {
+        if (!token.componentId) return false
+        if (!token.storedStateId) return false
+        break
+      }
+      case 'filter': {
+        if (!token.id) return false
+        break
+      }
     }
     return true
   })
@@ -225,10 +225,10 @@ export function isExpression(json: unknown): boolean {
  */
 export function toExpression(json: unknown | string): Expression | null {
   try {
-    if(typeof json === 'string') json = JSON.parse(json)
-    if(isExpression(json)) return json as Expression
+    if (typeof json === 'string') json = JSON.parse(json)
+    if (isExpression(json)) return json as Expression
     return null
-  } catch(e) {
+  } catch (e) {
     return null
   }
 }
@@ -260,18 +260,18 @@ export function getFieldType(editor: DataSourceEditor, field: Field | null, key:
   const types = field.typeIds.map(typeId => dataTree.getType(typeId, field.dataSourceId ?? null, componentId))
   const fields = types.map(type => type?.fields.find(field => field.label === key))
   switch (fields.length) {
-  case 0: return null
-  case 1: return fields[0]!
-  default: return {
-    id: `${field.id}.${key}`,
-    label: `${field.label}.${key}`,
-    typeIds: fields.reduce((typeIds, field) => typeIds
-    // Add typeIds of the field if not already present
-      .concat(field!.typeIds.filter(t => !typeIds.includes(t)))
-    , [] as string[]),
-    kind: 'object',
-    dataSourceId: field.dataSourceId,
-  }
+    case 0: return null
+    case 1: return fields[0]!
+    default: return {
+      id: `${field.id}.${key}`,
+      label: `${field.label}.${key}`,
+      typeIds: fields.reduce((typeIds, field) => typeIds
+        // Add typeIds of the field if not already present
+        .concat(field!.typeIds.filter(t => !typeIds.includes(t)))
+        , [] as string[]),
+      kind: 'object',
+      dataSourceId: field.dataSourceId,
+    }
   }
 }
 
@@ -290,10 +290,10 @@ export function optionsFormKeySelector(editor: DataSourceEditor, field: Field | 
       <select name=${name}>
         <option value="">Select a ${name}</option>
         ${field ? field.typeIds
-    .flatMap(typeId => dataTree.getType(typeId, field.dataSourceId ?? null, null)!.fields)
-    .map(f => html`<option value=${f.label} .selected=${f.label === options.key}>${f.label}</option>`)
-    : html``
-}
+      .flatMap(typeId => dataTree.getType(typeId, field.dataSourceId ?? null, null)!.fields)
+      .map(f => html`<option value=${f.label} .selected=${f.label === options.key}>${f.label}</option>`)
+      : html``
+    }
       </select>
     `
 }
@@ -335,13 +335,18 @@ export function getDefaultOptions(postFix = Math.random().toString(36).slice(2, 
 }
 
 export function createDataSource(opts: Partial<GraphQLOptions> = {}, postFix?: string): IDataSourceModel {
-  const options = {
+  const options:any = {
     ...getDefaultOptions(postFix),
     ...opts,
   }
   switch (options.type) {
     case 'graphql':
       return new GraphQL(options)
+    case 'openapi': {
+
+      options.method = 'get';
+      return new OpenApi(options as any)
+    }
     default:
       throw new Error(`Unknown data source type: ${options.type}`)
   }

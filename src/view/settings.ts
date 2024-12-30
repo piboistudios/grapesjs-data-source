@@ -492,7 +492,7 @@ class SettingsHeaders extends LitElement {
         >Add a header</button>
       `}
       <ul>
-        ${Object.entries(this.headers).map(([name, value]) => html`
+        ${Object.entries(this.headers || {}).map(([name, value]) => html`
           <li>
             <label class="ds-field">
               <span>Name</span>

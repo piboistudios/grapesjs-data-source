@@ -185,11 +185,7 @@ export function getState(component: Component, id: StateId, exported: boolean = 
   if(!state) {
     return null
   }
-  return {
-    label: state.label,
-    hidden: state.hidden,
-    expression: state.expression,
-  }
+  return state;
 }
 
 /**

@@ -173,7 +173,7 @@ export class CustomStatesEditor extends LitElement {
             <div class="ds-states__item">
               ${this.getStateEditor(selected, item.state.label || '', item.name)}
               <label>Computed?
-                <input type="checkbox" name="computed" .checked=${selected.get?.('publicStates')?.find?.(i => i.id === item.name)?.computed} @change=${(e:any) => {
+                <input type="checkbox" name="computed" .checked=${(item as any).state?.computed} @change=${(e:any) => {
                     // const newItem = {...item, state: {...item.state, computed: e.target.checked } };
                     // this.removeState(selected, item.name);
                     // this.setState(selected, newItem.name, newItem.state);

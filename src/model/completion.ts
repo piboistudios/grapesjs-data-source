@@ -6,7 +6,9 @@ import { getExpressionResultType, getTokenOptions } from './token'
 import { getFixedToken } from '../utils'
 import { html } from 'lit'
 import { debounce } from 'underscore'
-
+const DYNAMIC_SOURCES = [
+  'http'
+]
 /**
  * Get the context of a component
  * This includes all parents states, data sources queryable values, values provided in the options
@@ -47,10 +49,12 @@ export function getContext(component: Component, dataTree: DataTree, currentStat
         } catch (e) {
           console.error('Error while getting loop data for component', parent, 'and state', loopDataState)
         }
-        const loopIsState = loopDataState.expression?.[0]?.type === 'state';
-        if (loopIsState || loopDataField) {
+        const stateExpr = loopDataState.expression?.[0];
+        const loopIsState = stateExpr && stateExpr.type === 'state';
+        const loopIsDynamic = loopIsState || (stateExpr && stateExpr.type === 'property' && DYNAMIC_SOURCES.includes(stateExpr.dataSourceId as any) );
+        if (loopIsDynamic || loopDataField) {
           const displayName = (label: string) => `${parent.getName() ?? 'Unknown'}'s ${loopDataField.label ?? ''} ${label}`
-          if (loopIsState || loopDataField.kind === 'list') {
+          if (loopIsDynamic || loopDataField.kind === 'list') {
             loopProperties.push({
               type: 'state',
               storedStateId: '__data',
