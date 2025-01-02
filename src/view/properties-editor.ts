@@ -67,14 +67,14 @@ export class PropertiesEditor extends LitElement {
     }
     this.editor = editor
 
-    // Update the UI when a page is added/renamed/removed
-    this.editor.on('page', () => this.requestUpdate())
+    // // Update the UI when a page is added/renamed/removed
+    // this.editor.on('page', () => this.requestUpdate())
 
-    // Update the UI on component selection change
-    this.editor.on('component:selected', () => this.requestUpdate())
+    // // Update the UI on component selection change
+    // this.editor.on('component:selected', () => this.requestUpdate())
 
-    // Update the UI on component change
-    this.editor.on('component:update', () => this.requestUpdate())
+    // // Update the UI on component change
+    // this.editor.on('component:update', () => this.requestUpdate())
   }
 
   override render() {

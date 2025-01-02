@@ -280,6 +280,7 @@ export class PropsEditor extends LitElement {
     this.requestUpdate();
     this.editor.trigger('component:update', component);
 
+    this.requestUpdate()
   }
 
   /**
@@ -295,6 +296,7 @@ export class PropsEditor extends LitElement {
 
       this.editor.trigger('component:update', component);
 
+      this.requestUpdate()
     }
 
   }
@@ -329,7 +331,8 @@ export class PropsEditor extends LitElement {
     component.set('props', props);
     this.editor.trigger('component:update', component);
 
-    save(this.editor);
+    // save(this.editor);
+    this.requestUpdate()
 
   }
 
@@ -368,6 +371,7 @@ export class PropsEditor extends LitElement {
     const evt = props.find(e => name && e.get('name') === name);
     evt!.set('name', label);
     component.set('props', props.slice());
+    this.requestUpdate()
   }
 
   /**
@@ -385,6 +389,7 @@ export class PropsEditor extends LitElement {
     items.forEach(item => {
       this.setProp(component, item.get('name')!, item)
     })
+    this.requestUpdate()
   }
 
   /**
@@ -406,6 +411,7 @@ export class PropsEditor extends LitElement {
     });
     this.setProp(component, label, evt)
 
+    this.requestUpdate()
     return evt;
   }
 }

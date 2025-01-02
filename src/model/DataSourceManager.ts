@@ -377,7 +377,7 @@ const conditionalOptionsForm = (opts?) => function (selected, input, options, st
   options.consequent ??= '';
   options.alternate ??= '';
   const saveState = debounce(() => {
-    this.editor.store();
+    // this.editor.store();
   }, 1000);
   let testRightEl: Element;
   return html`
@@ -479,7 +479,7 @@ const binopOptionsForm = (opts?) => function (selected, input, options, stateNam
   options.left ??= '';
   options.right ??= '';
   const saveState = debounce(() => {
-    this.editor.store();
+    // this.editor.store();
   }, 1000);
   return html`
       <section style="display:flex;align-items:center;" class="ds-section">
@@ -522,7 +522,7 @@ const unopOptionsForm = (opts?) => function (selected, input, options, stateName
   options.argument ??= '';
   options.op ??= '';
   const saveState = debounce(() => {
-    this.editor.store();
+    // this.editor.store();
   }, 1000);
   return html`
       <section style="display:flex;align-items:center;" class="ds-section">
@@ -597,7 +597,7 @@ class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
           ],
           optionsForm: (selected, input, options, stateName) => {
             const saveState = debounce(() => {
-              this.editor.store();
+              // this.editor.store();
             }, 1000);
             options.target ??= '';
             return html`
@@ -635,7 +635,7 @@ class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
           ],
           optionsForm: (selected, input, options, stateName) => {
             const saveState = debounce(() => {
-              this.editor.store();
+              // this.editor.store();
             }, 1000);
             options.url ??= '';
             options.target ??= '';
@@ -685,7 +685,7 @@ class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
           ],
           optionsForm: (selected, input, options, stateName) => {
             const saveState = debounce(() => {
-              this.editor.store();
+              // this.editor.store();
             }, 1000);
             options.expression ??= '';
             return html`
@@ -749,7 +749,7 @@ class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
         //   ],
         //   optionsForm: (selected, input, options, stateName) => {
         //     const saveState = debounce(() => {
-        //       this.editor.store();
+              // this.editor.store();
         //     }, 1000);
         //     options.expression ??= '';
         //     return html`
@@ -789,7 +789,7 @@ class ActionsDataSource extends Backbone.Model<{}> implements IDataSource {
             options.stmt ??= '';
             options.of ??= '';
             const saveState = debounce(() => {
-              this.editor.store();
+              // this.editor.store();
             }, 1000);
             return html`
               <section style="display:flex;align-items:center;" class="ds-section">
@@ -981,7 +981,7 @@ class CoreDataSource extends Backbone.Model<{}> implements IDataSource {
    */
   getTypes(): Type[] {
     const saveState = debounce(() => {
-      this.editor.store();
+      // this.editor.store();
     }, 1000);
     return [{
       id: '__core',
@@ -1002,7 +1002,7 @@ class CoreDataSource extends Backbone.Model<{}> implements IDataSource {
           ],
           optionsForm: (selected, input, options, stateName) => {
             const saveState = debounce(() => {
-              this.editor.store();
+              // this.editor.store();
             }, 1000);
             options.value ??= '';
             return html`
@@ -1325,6 +1325,106 @@ class HttpDataSource extends Backbone.Model<{}> implements IDataSource {
         stateGetter(this.editor, { label: "Get Body", id: "get_body" }, "http", "__http"),
         stateGetter(this.editor, { label: "Get Local", id: "get_local" }, "http", "__http"),
         stateGetter(this.editor, { label: "Get Env", id: "get_env" }, "http", "__http"),
+        {
+          id: 'encrypt',
+          label: 'Encrypt',
+          typeIds: ['__http'],
+          kind: 'scalar' as FieldKind,
+          dataSourceId: HttpDataSourceId,
+          arguments: [
+            {
+              name: "value",
+              typeId: "unknown",
+              defaultValue: "[]"
+            },
+            {
+              name: "key",
+              typeId: "unknown",
+              defaultValue: "[]"
+            }
+          ],
+          optionsForm: (selected, input, options, stateName) => {
+            const saveState = debounce(() => {
+              // this.editor.store();
+            }, 1000);
+            options.key ??= '';
+            options.value ??= '';
+            return html`
+             <state-editor
+                  .selected=${selected}
+                  .editor=${this.editor}
+                    class="ds-state-editor__options"
+                  data-is-input
+                  name="value"
+                  .value=${options.value}
+                  @change=${saveState}
+                >
+                  <label slot="label">Value</label>
+                </state-editor>
+              <state-editor
+                  .selected=${selected}
+                  .editor=${this.editor}
+                    class="ds-state-editor__options"
+                  data-is-input
+                  name="key"
+                  .value=${options.key}
+                  @change=${saveState}
+                >
+                  <label slot="label">Encryption Key</label>
+                </state-editor>
+            `
+          },
+        },
+        {
+          id: 'decrypt',
+          label: 'Decrypt',
+          typeIds: ['__http'],
+          kind: 'scalar' as FieldKind,
+          dataSourceId: HttpDataSourceId,
+          arguments: [
+            {
+              name: "value",
+              typeId: "unknown",
+              defaultValue: "[]"
+            },
+            {
+              name: "key",
+              typeId: "unknown",
+              defaultValue: "[]"
+            }
+          ],
+          optionsForm: (selected, input, options, stateName) => {
+            const saveState = debounce(() => {
+              // this.editor.store();
+            }, 1000);
+            options.key ??= '';
+            options.value ??= '';
+            return html`
+             <state-editor
+                  .selected=${selected}
+                  .editor=${this.editor}
+                    class="ds-state-editor__options"
+                  data-is-input
+                  name="value"
+                  .value=${options.value}
+                  @change=${saveState}
+                >
+                  <label slot="label">Value</label>
+                </state-editor>
+              <state-editor
+                  .selected=${selected}
+                  .editor=${this.editor}
+                    class="ds-state-editor__options"
+                  data-is-input
+                  name="key"
+                  .value=${options.key}
+                  @change=${saveState}
+                >
+                  <label slot="label">Decryption Key</label>
+                </state-editor>
+            `
+          },
+        }
         // stateSetter(editor, {label: "Coalesce w/ State", id: 'coalesce_w_state'}),
 
       ]
@@ -1334,20 +1434,20 @@ class HttpDataSource extends Backbone.Model<{}> implements IDataSource {
       //   kind: 'object',
       //   typeIds: ['actions']
       // }))
-    }, ...['string', 'number'].map(t => ({
+    }, ...['string', 'number', 'date'].map(t => ({
       id: t,
       dataSourceId: undefined,
       label: t,
       fields: [],
 
     })),
-    {
-      id: 'to_date',
-      dataSourceId: undefined,
-      label: 'date',
-      fields: [],
+    // {
+    //   id: 'to_date',
+    //   dataSourceId: undefined,
+    //   label: 'date',
+    //   fields: [],
 
-    }
+    // }
   ]
   }
 

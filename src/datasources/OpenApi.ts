@@ -87,7 +87,7 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
                       id: [method, path, 'response'].join('_'),
                       dataSourceId: this.get('id'),
                       label: [method.toUpperCase(), path, 'Response'].join(' '),
-                      fields: Object.entries(def.responses)
+                      fields: Object.entries(def?.responses || {})
                         .map(([code, { content }]: [string, any]) => {
                           const namespace = [method, path, code, 'response'].join('_');
                           const jsonSchema = content?.['application/json']?.schema;

@@ -469,6 +469,5 @@ declare global {
   }
 }
 const save = debounce(function save(editor: DataSourceEditor | null) {
-  return editor?.store?.();
+  // return editor?.store?.();
 }, 1000);
-
