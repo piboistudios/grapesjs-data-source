@@ -142,7 +142,7 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
               )
           )
           .concat(
-            ['String','Number', 'Int', 'Float', 'Boolean', 'ID', 'Object', 'Array', 'Unknown']
+            ['String','Number', 'Int', 'Float', 'Boolean', 'ID', 'Object', 'Array', 'Unknown', 'Any']
               .map(t => ({
                 id: t,
                 dataSourceId: this.get('id'),
@@ -295,10 +295,14 @@ export default class OpenApi extends Backbone.Model<OpenApiOptions> implements I
   toField(name: string, schema: any, typeIds?: string[], kind?:FieldKind): Field {
     const id = name.slice(-2) === '[]' ? name.slice(0, -2) : name;
     typeIds ??= [];
+    const theTypes = [...(typeIds), ...new Set(this.getSchemaTypes(schema))].filter(Boolean);
+    if(!theTypes.length) {
+      theTypes.push('Any')
+    }
     return ({
       id,
       label: name,
-      typeIds: [...(typeIds), ...new Set(this.getSchemaTypes(schema))],
+      typeIds: theTypes ,
       kind: kind || this.getKind(schema),
       dataSourceId: this.get('id')
     })

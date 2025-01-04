@@ -14,11 +14,11 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
+import {debounce} from 'underscore';
 import {LitElement, html} from 'lit'
 import { ref } from 'lit/directives/ref.js'
 import {customElement, property} from 'lit/decorators.js'
-import { StoredState, getState, getStateIds, removeState, setState } from '../model/state'
+import { StoredState, StoredStateWithId, getState, getStateIds, removeState, setState } from '../model/state'
 import { DataSourceEditor, Token  } from '../types'
 
 import './state-editor'
@@ -140,7 +140,6 @@ export class CustomStatesEditor extends LitElement {
       </section>
     `
   }
-
   override render() {
     super.render()
     this.redrawing = true
@@ -149,14 +148,32 @@ export class CustomStatesEditor extends LitElement {
       ${this.getHead(null)}
       <p class="ds-empty">Select an element to edit its states</p>
     `
-    if(!this.editor || this.disabled) {
+    if (!this.editor || this.disabled) {
       this.redrawing = false
       return html``
     }
-    if(!selected) {
+    if (!selected) {
       this.redrawing = false
       return empty
     }
+    let el: Component | undefined = selected;
+    const states: StoredStateWithId[] = [];
+    // let elStates = el.get('publicStates');
+    do {
+      states.push(...(el.get('publicStates') || []));
+      const privateStates = el.get('privateStates');
+      if (privateStates) {
+
+        const loopData = el.get('privateStates').find(s => s.id === '__data');
+        if (loopData) {
+          states.push({
+            ...loopData,
+            id: ['state', el.get('id-plugin-data-source'), '__data'].join('_').replace(/-/gi, '$'),
+            label: "Loop Data " + `(${el.tagName})`
+          });
+        }
+      }
+    } while ((el = el.parent()))
     const items: Item[] = this.getStateIds(selected)
       .map(stateId => ({
         name: stateId,
@@ -164,68 +181,119 @@ export class CustomStatesEditor extends LitElement {
         state: this.getState(selected, stateId)!,
       }))
       .filter(item => item.state && !item.state.hidden)
-    const result =  html`
+    const result = html`
       ${this.getHead(selected)}
       <div class="ds-states">
         <div class="ds-states__items">
           ${items
-    .map((item, index) => html`
+        .map((item, index) => html`
             <div class="ds-states__item">
               ${this.getStateEditor(selected, item.state.label || '', item.name)}
               <label>Computed?
-                <input type="checkbox" name="computed" .checked=${(item as any).state?.computed} @change=${(e:any) => {
-                    // const newItem = {...item, state: {...item.state, computed: e.target.checked } };
-                    // this.removeState(selected, item.name);
-                    // this.setState(selected, newItem.name, newItem.state);
-                    const pub = selected.get('publicStates');
-                    const thisstate = pub.find(i => i.id === item.name);
-                    thisstate.computed = e.target.checked;
-                    selected.set('publicStates', pub);
-                    this.requestUpdate();
-                }}/>
+                <input type="checkbox" name="computed" .checked=${(item as any).state?.computed} @change=${(e: any) => {
+            // const newItem = {...item, state: {...item.state, computed: e.target.checked } };
+            // this.removeState(selected, item.name);
+            // this.setState(selected, newItem.name, newItem.state);
+            const pub = selected.get('publicStates');
+            const thisstate = pub.find(i => i.id === item.name);
+            thisstate.computed = e.target.checked;
+            selected.set('publicStates', pub);
+          }}/>
               </label>
+              <label>Setting?
+                <input type="checkbox" name="hasSetting" .checked=${(item as any).state?.hasSetting} @change=${(e: any) => {
+            // const newItem = {...item, state: {...item.state, hasSetting: e.target.checked } };
+            // this.removeState(selected, item.name);
+            // this.setState(selected, newItem.name, newItem.state);
+            const pub = selected.get('publicStates');
+            const thisstate = pub.find(i => i.id === item.name);
+            thisstate.hasSetting = e.target.checked;
+            selected.set('publicStates', pub);
+            this.requestUpdate();
+          }}/>
+              </label>
+              ${(item as any).state.hasSetting ? html`
+              <section style="display:flex;justify-content:space-between;align-items: center;">
+                <label>State
+                  <select name="setKey" @input=${(e: any) => {
+              // const newItem = {...item, state: {...item.state, hasSetting: e.target.checked } };
+              // this.removeState(selected, item.name);
+              // this.setState(selected, newItem.name, newItem.state);
+              const pub = selected.get('publicStates');
+              const thisstate = pub.find(i => i.id === item.name);
+              thisstate.setKey = e.target.value;
+              selected.set('publicStates', pub);
+            }} value=${(item as any).state.setKey}>
+          ${states.map(s => {
+              return html`
+            ${s.id === (item as any).state.setKey ?
+                  html`<option value=${s.id} selected>${s.label}</option>` :
+                  html`<option value=${s.id}>${s.label}</option>`
+                }
+            `
+            })}
+        </select>
+            
+                </label>
+                <label>Property
+                  <input name="setProp" ${ref(el => {
+                    (item as any).input = el;
+                  })} placeholder="property" value=${(item as any).state.setProp} type="text" @input=${debounce((e: any) => {
+              // const newItem = {...item, state: {...item.state, hasSetting: e.target.checked } };
+              // this.removeState(selected, item.name);
+              // this.setState(selected, newItem.name, newItem.state);
+              const pub = selected.get('publicStates');
+              const thisstate = pub.find(i => i.id === item.name);
+              thisstate.setProp = e?.target?.value || (item as any).input.value;
+              selected.set('publicStates', pub);
+            }, 100)} />
+
+                </label>
+                <label>
+              </section>` : ''}
               <div class="ds-states__buttons">
                 <button
                   title="Remove this state"
                   class="ds-states__remove-button ds-states__button"
                   @click=${() => {
-    this.removeState(selected, item.name)
-    this.requestUpdate()
-  }}
+            this.removeState(selected, item.name)
+            this.requestUpdate()
+          }}
                   >x</button>
                 <button
                   title="Rename this state"
                   class="ds-states__rename-button ds-states__button"
                   @click=${() => {
-    const newItem = this.renameCustomState(item)
-    if(!newItem || newItem === item) return
-    this.removeState(selected, item.name)
-    this.setState(selected, newItem.name, newItem.state)
-    this.requestUpdate()
-  }}
+            const newItem = this.renameCustomState(item)
+            if (!newItem || newItem === item) return
+            this.removeState(selected, item.name)
+            this.setState(selected, newItem.name, newItem.state)
+            this.requestUpdate()
+          }}
                   >\u270F</button>
                   <button
                     title="Move this state up"
-                    class="ds-states__item-move-up ds-states__button${ index === 0 ? ' ds-states__button--disabled' : '' }"
+                    class="ds-states__item-move-up ds-states__button${index === 0 ? ' ds-states__button--disabled' : ''}"
                     @click=${() => {
-    items.splice(index - 1, 0, items.splice(index, 1)[0])
-    this.updateOrderCustomStates(selected, items)
-  }}
+            items.splice(index - 1, 0, items.splice(index, 1)[0])
+            this.updateOrderCustomStates(selected, items)
+          }}
                     >\u2191</button>
                   <button
                     title="Move this state down"
-                    class="ds-states__item-move-down ds-states__button${ index === items.length - 1 ? ' ds-states__button--disabled' : '' }"
+                    class="ds-states__item-move-down ds-states__button${index === items.length - 1 ? ' ds-states__button--disabled' : ''}"
                     @click=${() => {
-    items.splice(index + 1, 0, items.splice(index, 1)[0])
-    this.updateOrderCustomStates(selected, items)
-  }}
+            items.splice(index + 1, 0, items.splice(index, 1)[0])
+            this.updateOrderCustomStates(selected, items)
+          }}
                   >\u2193</button>
               </div>
             </div>
             <hr class="ds-states__sep" />
-          `)}
+          `)
+      }
         </div>
-      </div>
+  </div>
     `
     this.redrawing = false
     return result

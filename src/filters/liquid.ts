@@ -463,10 +463,26 @@ export default function (editor: DataSourceEditor): Filter[] {
       label: 'map',
       validate: (field: Field | null) => !!field && (field.kind === 'list' || field.kind === 'object'),
       output: (field, options) => getFieldType(editor, field, options['key'] as string | undefined, null),
-      apply: (arr, options) => arr instanceof Array ?
-        (arr as Record<string, unknown>[])
-          .map(item => item[options.key as string]) :
-        (arr as Record<string, unknown>)[options.key as string],
+      apply: (arr, options) => {
+        function access(o, key) {
+          const [obj, prop] = drill(o, key);
+          return obj[prop];
+        }
+        return arr instanceof Array ?
+          (arr as Record<string, unknown>[])
+            .map(item => access(item, options.key as string)) :
+          access(arr, options.key)
+        function drill(obj, ...path) {
+
+          path = path.filter(Boolean).flatMap(p => p.split('.'))
+          return path.reduce((result, part, index, array) => {
+            if (index === array.length - 1) {
+              return [result ?? {}, part]
+            }
+            return result?.[part];
+          }, obj)
+        }
+      },
       options: {
         key: '',
       },
@@ -970,26 +986,26 @@ export default function (editor: DataSourceEditor): Filter[] {
             '%P': () => date.getHours() < 12 ? 'am' : 'pm',    // am/pm   // AM/PM
             '%w': () => date.getDay().toString(),              // Day of week (0-6)
             '%j': () => {                                      // Day of year (001-366)
-              const start:any = new Date(date.getFullYear(), 0, 0);
+              const start: any = new Date(date.getFullYear(), 0, 0);
               const diff = date - start;
               const day = Math.floor(diff / (1000 * 60 * 60 * 24));
               return day.toString().padStart(3, '0');
             },
             '%U': () => {                                      // Week number (00-53) starting Sunday
-              const firstDay:any = new Date(date.getFullYear(), 0, 1);
-              const firstSunday:any = new Date(date.getFullYear(), 0, 1 + (7 - firstDay.getDay()));
+              const firstDay: any = new Date(date.getFullYear(), 0, 1);
+              const firstSunday: any = new Date(date.getFullYear(), 0, 1 + (7 - firstDay.getDay()));
               const diff = date - firstSunday;
               return Math.ceil(diff / (7 * 24 * 60 * 60 * 1000)).toString().padStart(2, '0');
             },
             '%W': () => {                                      // Week number (00-53) starting Monday
-              const firstDay:any = new Date(date.getFullYear(), 0, 1);
-              const firstMonday:any = new Date(date.getFullYear(), 0, 1 + (8 - firstDay.getDay()) % 7);
+              const firstDay: any = new Date(date.getFullYear(), 0, 1);
+              const firstMonday: any = new Date(date.getFullYear(), 0, 1 + (8 - firstDay.getDay()) % 7);
               const diff = date - firstMonday;
               return Math.ceil(diff / (7 * 24 * 60 * 60 * 1000)).toString().padStart(2, '0');
             },
             '%%': () => '%'                                    // Literal % character
           };
-        
+
           return format.replace(/%[A-Za-z%]/g, (match) => {
             const formatter = formats[match];
             return formatter ? formatter() : match;
